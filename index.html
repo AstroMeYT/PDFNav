@@ -600,11 +600,18 @@
             let matchingStrings = textItems.filter(item => {
                 const x = item.transform[4];
                 const y = item.transform[5];
-                return (x >= minX - 15 && x <= maxX + 15) && (y >= minY - 6 && y <= maxY + 6);
+                const w = item.width || (item.str.length * 5); // Fallback width estimation
+
+                // Strict intersection to prevent adjacent links from merging into one string
+                const intersectsX = (x + w >= minX - 1) && (x <= maxX + 1);
+                // Baselines in PDF.js can sit slightly below or above the bounding box
+                const intersectsY = (y >= minY - 4) && (y <= maxY + 8);
+
+                return intersectsX && intersectsY;
             });
 
             matchingStrings.sort((a, b) => a.transform[4] - b.transform[4]); 
-            return matchingStrings.map(item => item.str).join(' ').trim();
+            return matchingStrings.map(item => item.str).join(' ').replace(/\s+/g, ' ').trim();
         }
 
         async function scanForPrintedTableOfContents(pdfDoc) {
