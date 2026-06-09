@@ -615,9 +615,13 @@
         }
 
         // Horizontal Row Scraper to isolate nearby Chapter Numbers
-        function getRowChapterNumber(baselineY, linkMinX, textItems) {
-            // Find all text items sitting on the same Y baseline row (tolerance of 8px)
-            const rowItems = textItems.filter(item => Math.abs(item.transform[5] - baselineY) < 8);
+        function getRowChapterNumber(baselineY, linkMinX, textItems, leftBoundaryX) {
+            // Find row items left of linkMinX and right of leftBoundaryX boundary limit
+            const rowItems = textItems.filter(item => 
+                Math.abs(item.transform[5] - baselineY) < 8 &&
+                item.transform[4] < linkMinX &&
+                item.transform[4] >= leftBoundaryX
+            );
             
             // Chapter Number detection pattern (e.g. 4.20, 11.2, 1.05.2)
             const chapterRegex = /\b\d+\.\d+(?:\.\d+)?\b/;
@@ -641,8 +645,13 @@
         }
 
         // Horizontal Row Scraper to isolate nearby Section Title Descriptions
-        function getRowDescription(baselineY, linkMinX, textItems) {
-            const rowItems = textItems.filter(item => Math.abs(item.transform[5] - baselineY) < 8);
+        function getRowDescription(baselineY, linkMinX, textItems, leftBoundaryX) {
+            // Find row items strictly between the left boundary and this link
+            const rowItems = textItems.filter(item => 
+                Math.abs(item.transform[5] - baselineY) < 8 &&
+                item.transform[4] < linkMinX &&
+                item.transform[4] >= leftBoundaryX
+            );
             
             // Sort left-to-right
             rowItems.sort((a, b) => a.transform[4] - b.transform[4]);
@@ -707,14 +716,32 @@
                 
                 const baselineY = (rect[1] + rect[3]) / 2;
                 const linkMinX = Math.min(rect[0], rect[2]);
+                const linkMaxX = Math.max(rect[0], rect[2]);
+
+                // Compute leftward boundary from neighboring links on the same baseline to prevent bleeding
+                let leftBoundaryX = 0;
+                linkAnnos.forEach(other => {
+                    if (other === anno) return;
+                    const otherRect = other.rect;
+                    const otherMinX = Math.min(otherRect[0], otherRect[2]);
+                    const otherMaxX = Math.max(otherRect[0], otherRect[2]);
+                    const otherBaselineY = (otherRect[1] + otherRect[3]) / 2;
+
+                    // If other link sits on the same horizontal line and is strictly to the left of our current link
+                    if (Math.abs(otherBaselineY - baselineY) < 10 && otherMaxX < linkMinX) {
+                        if (otherMaxX > leftBoundaryX) {
+                            leftBoundaryX = otherMaxX;
+                        }
+                    }
+                });
                 
-                // Track down neighboring row data horizontally
-                const rowChapter = getRowChapterNumber(baselineY, linkMinX, textItems);
+                // Track down neighboring row data horizontally within boundary limits
+                const rowChapter = getRowChapterNumber(baselineY, linkMinX, textItems, leftBoundaryX);
                 
                 if (rowChapter && !label.includes(rowChapter)) {
                     // Extract neighboring words if the link overlay sits only on the page count
                     if (!label || label.trim() === "" || /^\d+$/.test(label.trim()) || label.toLowerCase().includes('page')) {
-                        const nearbyText = getRowDescription(baselineY, linkMinX, textItems);
+                        const nearbyText = getRowDescription(baselineY, linkMinX, textItems, leftBoundaryX);
                         if (nearbyText && nearbyText !== label) {
                             label = rowChapter + " " + nearbyText;
                         } else {
@@ -1014,13 +1041,35 @@
             window.location.reload(); 
         });
 
-        // --- DIRECT PDF STREAM AUTO-LOADER ---
-        async function loadPdfFromUrl(url) {
+        // --- DIRECT PDF STREAM AUTO-LOADER FROM TEXT FILE ---
+        async function loadPdfFromTextFile(url) {
             ui.loader.classList.remove('hidden');
-            ui.loaderMsg.textContent = "Auto-loading source.pdf from local directory...";
+            ui.loaderMsg.textContent = "Auto-loading base64 stream from source.txt...";
             
             try {
-                currentDocument = await pdfjsLib.getDocument(url).promise;
+                // Fetch the text file containing the Data URI
+                const response = await fetch(url);
+                const text = await response.text();
+                const dataUri = text.trim();
+
+                // Extract base64 part if it contains a Data URI wrapper prefix
+                let base64 = dataUri;
+                if (dataUri.startsWith('data:')) {
+                    const commaIndex = dataUri.indexOf(',');
+                    if (commaIndex !== -1) {
+                        base64 = dataUri.substring(commaIndex + 1);
+                    }
+                }
+
+                // Decode base64 to typed Uint8Array safely in browser scope
+                const binaryString = window.atob(base64);
+                const len = binaryString.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+
+                currentDocument = await pdfjsLib.getDocument({ data: bytes }).promise;
                 isPdfLoaded = true;
                 ui.resetBtn.classList.remove('hidden');
                 ui.scrapeCurrentBtn.classList.remove('hidden');
@@ -1035,14 +1084,14 @@
                 ui.pageInput.value = 1;
                 currentPageNum = 1;
 
-                // Execute deep scanned printed Table of Contents mapper
+                // Execute scanned Table of Contents parser targeting pages 3-7
                 await scanForPrintedTableOfContents(currentDocument);
                 
                 // Index text segments for fuzzy matching search
                 await parseTextForSearchEngine(currentDocument);
                 
             } catch (err) {
-                console.warn("Could not load source.pdf automatically. Running in local mock protocol mode.", err);
+                console.warn("Could not load source.txt automatically. Running in local mock protocol mode.", err);
                 
                 pdfOutlineData = [
                     { title: "1.0 Universal Patient Care", dest: 0, url: null, sourcePage: 1 },
@@ -1065,7 +1114,7 @@
         }
 
         window.onload = function () {
-            loadPdfFromUrl('source.pdf');
+            loadPdfFromTextFile('source.txt');
         }
     </script>
 </body>
