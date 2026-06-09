@@ -608,24 +608,20 @@
         }
 
         async function scanForPrintedTableOfContents(pdfDoc) {
-            ui.loaderMsg.textContent = "Scanning document for printed Table of Contents pages...";
+            ui.loaderMsg.textContent = "Extracting Table of Contents from pages 3-7...";
             pdfOutlineData = [];
-            const pageLimit = Math.min(20, pdfDoc.numPages); 
+            
+            // Explicitly target pages 3 through 7
+            const startPage = Math.min(3, pdfDoc.numPages);
+            const endPage = Math.min(7, pdfDoc.numPages);
 
-            for (let i = 1; i <= pageLimit; i++) {
+            for (let i = startPage; i <= endPage; i++) {
                 try {
                     const page = await pdfDoc.getPage(i);
                     const textContent = await page.getTextContent();
-                    const rawPageText = textContent.items.map(item => item.str).join(' ').toLowerCase();
-
-                    const hasTOCLabel = rawPageText.includes("table of contents") || 
-                                        rawPageText.includes("table of content") || 
-                                        (rawPageText.includes("index") && rawPageText.includes("page")) ||
-                                        (rawPageText.includes("contents") && rawPageText.includes("page"));
-
-                    if (hasTOCLabel) {
-                        await scrapeLinksFromPage(page, textContent.items);
-                    }
+                    
+                    // Directly scrape these pages without relying on heuristic keywords
+                    await scrapeLinksFromPage(page, textContent.items);
                 } catch (err) {
                     console.warn(`Error scanning page index ${i} for TOC metadata:`, err);
                 }
