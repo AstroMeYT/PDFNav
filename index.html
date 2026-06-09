@@ -614,6 +614,58 @@
             return matchingStrings.map(item => item.str).join(' ').replace(/\s+/g, ' ').trim();
         }
 
+        // Horizontal Row Scraper to isolate nearby Chapter Numbers
+        function getRowChapterNumber(baselineY, linkMinX, textItems) {
+            // Find all text items sitting on the same Y baseline row (tolerance of 8px)
+            const rowItems = textItems.filter(item => Math.abs(item.transform[5] - baselineY) < 8);
+            
+            // Chapter Number detection pattern (e.g. 4.20, 11.2, 1.05.2)
+            const chapterRegex = /\b\d+\.\d+(?:\.\d+)?\b/;
+            
+            let bestChapter = "";
+            let minDistance = Infinity;
+            
+            rowItems.forEach(item => {
+                const match = item.str.match(chapterRegex);
+                if (match) {
+                    const itemX = item.transform[4];
+                    const distance = Math.abs(itemX - linkMinX);
+                    // Locate nearest chapter identifier located within scanning range
+                    if (distance < minDistance && distance < 350) {
+                        minDistance = distance;
+                        bestChapter = match[0];
+                    }
+                }
+            });
+            return bestChapter;
+        }
+
+        // Horizontal Row Scraper to isolate nearby Section Title Descriptions
+        function getRowDescription(baselineY, linkMinX, textItems) {
+            const rowItems = textItems.filter(item => Math.abs(item.transform[5] - baselineY) < 8);
+            
+            // Sort left-to-right
+            rowItems.sort((a, b) => a.transform[4] - b.transform[4]);
+            
+            const chapterRegex = /^\d+\.\d+(?:\.\d+)?$/;
+            const dotsRegex = /^\.+$/;
+            const pageWordRegex = /^[Pp]age\s*\d+$/;
+            
+            let descriptionParts = [];
+            rowItems.forEach(item => {
+                const str = item.str.trim();
+                if (!str) return;
+                if (chapterRegex.test(str)) return;
+                if (dotsRegex.test(str)) return;
+                if (pageWordRegex.test(str)) return;
+                if (/^\d+$/.test(str)) return; // Exclude plain page counters
+                
+                descriptionParts.push(str);
+            });
+            
+            return descriptionParts.join(' ').trim();
+        }
+
         async function scanForPrintedTableOfContents(pdfDoc) {
             ui.loaderMsg.textContent = "Extracting Table of Contents from pages 3-7...";
             pdfOutlineData = [];
@@ -650,7 +702,28 @@
             const linkAnnos = annotations.filter(a => a.subtype === 'Link');
 
             linkAnnos.forEach(anno => {
-                let label = getTextOverlappingAnnotation(anno.rect, textItems);
+                const rect = anno.rect;
+                let label = getTextOverlappingAnnotation(rect, textItems);
+                
+                const baselineY = (rect[1] + rect[3]) / 2;
+                const linkMinX = Math.min(rect[0], rect[2]);
+                
+                // Track down neighboring row data horizontally
+                const rowChapter = getRowChapterNumber(baselineY, linkMinX, textItems);
+                
+                if (rowChapter && !label.includes(rowChapter)) {
+                    // Extract neighboring words if the link overlay sits only on the page count
+                    if (!label || label.trim() === "" || /^\d+$/.test(label.trim()) || label.toLowerCase().includes('page')) {
+                        const nearbyText = getRowDescription(baselineY, linkMinX, textItems);
+                        if (nearbyText && nearbyText !== label) {
+                            label = rowChapter + " " + nearbyText;
+                        } else {
+                            label = rowChapter + " " + label;
+                        }
+                    } else {
+                        label = rowChapter + " " + label;
+                    }
+                }
                 
                 if (!label || label.length < 2) {
                     if (anno.dest) {
@@ -665,6 +738,9 @@
                 if (label.includes('<<') || label.includes('<<<')) {
                     return;
                 }
+
+                // Format structure spacing and dots
+                label = label.replace(/\s+/g, ' ').replace(/\.+/g, '.').trim();
 
                 pdfOutlineData.push({
                     title: label,
@@ -944,7 +1020,6 @@
             ui.loaderMsg.textContent = "Auto-loading source.pdf from local directory...";
             
             try {
-                // Initialize request to direct location relative to script
                 currentDocument = await pdfjsLib.getDocument(url).promise;
                 isPdfLoaded = true;
                 ui.resetBtn.classList.remove('hidden');
@@ -969,10 +1044,9 @@
             } catch (err) {
                 console.warn("Could not load source.pdf automatically. Running in local mock protocol mode.", err);
                 
-                // Fallback: Populate mock interactive dataset quietly to ensure functional execution
                 pdfOutlineData = [
-                    { title: "Universal Patient Care", dest: 0, url: null, sourcePage: 1 },
-                    { title: "Airway Management & Oxygenation", dest: 1, url: null, sourcePage: 2 }
+                    { title: "1.0 Universal Patient Care", dest: 0, url: null, sourcePage: 1 },
+                    { title: "2.0 Airway Management & Oxygenation", dest: 1, url: null, sourcePage: 2 }
                 ];
                 ui.totalPagesText.textContent = MOCK_PROTOCOLS.length;
                 ui.pageInput.max = MOCK_PROTOCOLS.length;
@@ -986,13 +1060,11 @@
                 renderDashboardAndSidebar();
                 setViewMode('dashboard');
             } finally {
-                // Guaranteed safety dismissal of loading overlay
                 ui.loader.classList.add('hidden');
             }
         }
 
         window.onload = function () {
-            // Kick off the auto-load queue on page load
             loadPdfFromUrl('source.pdf');
         }
     </script>
