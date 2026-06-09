@@ -14,19 +14,45 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #111827; }
-        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
+        /* Adwaita Design Variables */
+        :root {
+            --window-bg: #242424;
+            --view-bg: #1e1e1e;
+            --card-bg: #303030;
+            --accent-bg: #3584e4;
+            --accent-hover: #5195e8;
+            --headerbar-bg: #303030;
+            --text-color: #ffffff;
+            --dim-text: #9a9996;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --popover-bg: #383838;
+        }
+
+        /* Customize Scrollbars to look like GNOME scrollbars */
+        ::-webkit-scrollbar { 
+            width: 8px; 
+            height: 8px; 
+        }
+        ::-webkit-scrollbar-track { 
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb { 
+            background: rgba(255, 255, 255, 0.15); 
+            border-radius: 9999px;
+            border: 2px solid var(--window-bg);
+        }
+        ::-webkit-scrollbar-thumb:hover { 
+            background: rgba(255, 255, 255, 0.3); 
+        }
         
         @keyframes record-pulse {
-            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
-            70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
-            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(53, 132, 228, 0.7); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 8px rgba(53, 132, 228, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(53, 132, 228, 0); }
         }
         .voice-active {
             animation: record-pulse 1.5s infinite;
-            background-color: #3b82f6 !important;
+            background-color: var(--accent-bg) !important;
             color: #ffffff !important;
         }
 
@@ -50,38 +76,43 @@
             transform-origin: 0% 0%;
         }
         .pdf-text-layer ::selection {
-            background: rgba(59, 130, 246, 0.3);
+            background: rgba(53, 132, 228, 0.3);
             color: transparent;
+        }
+
+        /* UI Animations */
+        .adw-transition {
+            transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
         }
     </style>
 </head>
-<body class="bg-gray-950 text-gray-100 flex flex-col h-screen overflow-hidden font-sans select-none">
+<body class="bg-[#242424] text-white flex flex-col h-screen overflow-hidden font-sans select-none antialiased">
 
     <!-- TOP HEADER -->
-    <header class="bg-gray-900 border-b border-gray-800 px-4 py-3 flex flex-wrap items-center justify-between gap-4 z-20 shadow-md">
+    <header class="bg-[#303030] border-b border-[rgba(255,255,255,0.08)] px-4 py-2.5 flex flex-wrap items-center justify-between gap-4 z-20 shadow-sm">
         <div class="flex items-center gap-3">
-            <div class="bg-blue-600 text-white p-2.5 rounded-lg shadow-lg flex items-center justify-center animate-pulse">
-                <i class="fa-solid fa-truck-medical text-xl"></i>
+            <div class="bg-[#3584e4] text-white w-9 h-9 rounded-lg shadow-sm flex items-center justify-center adw-transition">
+                <i class="fa-solid fa-truck-medical text-md"></i>
             </div>
             <div>
-                <h1 class="text-lg font-bold tracking-wider text-white flex items-center gap-2">
-                    PDFNav <span class="text-xs bg-blue-600/20 text-blue-400 font-semibold px-2 py-0.5 rounded border border-blue-500/30">PDF ENGINE</span>
+                <h1 class="text-sm font-bold text-white tracking-wide flex items-center gap-2">
+                    PDFNav <span class="text-[10px] bg-[rgba(255,255,255,0.06)] text-[#3584e4] font-semibold px-2 py-0.5 rounded-full border border-blue-500/20">Adwaita Dark</span>
                 </h1>
-                <p class="text-[10px] text-gray-400 uppercase tracking-widest font-semibold">TOC Extraction & Direct Routing</p>
+                <p class="text-[10px] text-[#9a9996] font-medium tracking-wide">TOC Extraction & Direct Routing</p>
             </div>
         </div>
 
         <div class="flex items-center gap-2">
             <!-- Scrape Current Button -->
-            <button id="scrape-current-btn" class="hidden bg-gray-800 hover:bg-gray-700 text-blue-400 border border-gray-700 px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition duration-200" title="Scrape links on the current page to use as dashboard buttons">
-                <i class="fa-solid fa-wand-magic-sparkles"></i> Use Page as Dashboard
+            <button id="scrape-current-btn" class="hidden bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.12)] text-[#5195e8] border border-[rgba(255,255,255,0.04)] px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 adw-transition" title="Scrape links on the current page to use as dashboard buttons">
+                <i class="fa-solid fa-wand-magic-sparkles text-xs"></i> Use Page as Dashboard
             </button>
-            <label for="pdf-uploader" class="cursor-pointer bg-blue-600 hover:bg-blue-500 text-white border border-blue-700 px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition duration-200">
+            <label for="pdf-uploader" class="cursor-pointer bg-[#3584e4] hover:bg-[#5195e8] text-white px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 shadow-sm adw-transition">
                 <i class="fa-solid fa-file-pdf"></i>
                 <span id="upload-label">Load PDF Document</span>
             </label>
             <input type="file" id="pdf-uploader" accept=".pdf" class="hidden">
-            <button id="reset-doc" class="hidden text-gray-400 hover:text-blue-400 p-2 text-xs" title="Reset">
+            <button id="reset-doc" class="hidden text-[#9a9996] hover:text-white bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.12)] p-2 rounded-lg adw-transition text-xs" title="Reset">
                 <i class="fa-solid fa-rotate-left"></i>
             </button>
         </div>
@@ -90,193 +121,193 @@
     <main class="flex flex-1 overflow-hidden relative">
 
         <!-- LEFT SIDEBAR -->
-        <section class="w-80 bg-gray-900 border-r border-gray-800 flex flex-col z-10 transition-all duration-300" id="sidebar">
+        <section class="w-80 bg-[#1e1e1e] border-r border-[rgba(255,255,255,0.08)] flex flex-col z-10" id="sidebar">
             <!-- Search bar for Full Document Search -->
-            <div class="p-3 border-b border-gray-800 bg-gray-950/50">
-                <label class="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">Search Page Text (Full PDF)</label>
+            <div class="p-4 border-b border-[rgba(255,255,255,0.05)] bg-[#1e1e1e]">
+                <label class="block text-[10px] font-bold text-[#9a9996] uppercase tracking-wider mb-2">Search Page Text (Full PDF)</label>
                 <div class="relative flex items-center">
                     <input type="text" id="search-input" placeholder="Search page contents..." 
-                           class="w-full bg-gray-900 text-gray-100 placeholder-gray-500 text-xs pl-8 pr-8 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-blue-500 transition-all shadow-inner">
-                    <div class="absolute left-2.5 text-gray-500 pointer-events-none">
+                           class="w-full bg-[#303030] text-gray-100 placeholder-[#9a9996] text-xs pl-8 pr-8 py-2.5 rounded-full border-none focus:outline-none focus:ring-2 focus:ring-[#3584e4]/50 transition-all shadow-inner">
+                    <div class="absolute left-3 text-[#9a9996] pointer-events-none">
                         <i class="fa-solid fa-magnifying-glass text-[10px]"></i>
                     </div>
-                    <button id="voice-btn" class="absolute right-2 text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 w-6 h-6 rounded flex items-center justify-center transition-all" title="Voice Search Document">
+                    <button id="voice-btn" class="absolute right-2 text-[#9a9996] hover:text-white bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.12)] w-6.5 h-6.5 rounded-full flex items-center justify-center adw-transition" title="Voice Search Document">
                         <i class="fa-solid fa-microphone text-[10px]"></i>
                     </button>
                 </div>
-                <div id="indexing-progress" class="hidden mt-2">
-                    <div class="flex justify-between text-[10px] text-gray-400 mb-1">
+                <div id="indexing-progress" class="hidden mt-3">
+                    <div class="flex justify-between text-[10px] text-[#9a9996] mb-1">
                         <span>Background Text Extraction...</span>
                         <span id="progress-percent">0%</span>
                     </div>
-                    <div class="w-full bg-gray-800 rounded-full h-1">
-                        <div id="progress-bar" class="bg-blue-500 h-1 rounded-full transition-all duration-100" style="width: 0%"></div>
+                    <div class="w-full bg-[#303030] rounded-full h-1">
+                        <div id="progress-bar" class="bg-[#3584e4] h-1 rounded-full transition-all duration-100" style="width: 0%"></div>
                     </div>
                 </div>
             </div>
 
             <!-- Table of Contents Section header -->
-            <div class="px-4 py-2 bg-gray-900/80 border-b border-gray-800/50 flex justify-between items-center">
-                <span class="text-xs font-bold text-gray-400 uppercase tracking-wider">Detected Links List</span>
-                <span id="doc-page-count" class="text-[10px] text-gray-500 bg-gray-950 px-2 py-0.5 rounded">Ready</span>
+            <div class="px-4 py-2 bg-[#1e1e1e] border-b border-[rgba(255,255,255,0.05)] flex justify-between items-center">
+                <span class="text-[10px] font-bold text-[#9a9996] uppercase tracking-wider">Detected Links List</span>
+                <span id="doc-page-count" class="text-[10px] text-[#9a9996] bg-[#303030] px-2 py-0.5 rounded-full">Ready</span>
             </div>
 
             <!-- Scraped List Filtering Search Bar -->
-            <div class="p-2 border-b border-gray-800/60 bg-gray-950/20">
+            <div class="p-3 border-b border-[rgba(255,255,255,0.05)] bg-[#1e1e1e]">
                 <div class="relative flex items-center">
                     <input type="text" id="listings-search-input" placeholder="Filter detected links..." 
-                           class="w-full bg-gray-900 text-gray-100 placeholder-gray-500 text-xs pl-8 pr-8 py-2 rounded-lg border border-gray-800 focus:outline-none focus:border-blue-500 transition-all">
-                    <div class="absolute left-2.5 text-gray-500 pointer-events-none">
+                           class="w-full bg-[#303030] text-gray-100 placeholder-[#9a9996] text-xs pl-8 pr-8 py-2 rounded-full border-none focus:outline-none focus:ring-2 focus:ring-[#3584e4]/50 transition-all">
+                    <div class="absolute left-3 text-[#9a9996] pointer-events-none">
                         <i class="fa-solid fa-filter text-[10px]"></i>
                     </div>
-                    <button id="listings-voice-btn" class="absolute right-2 text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 w-6 h-6 rounded flex items-center justify-center transition-all" title="Voice Search Links">
+                    <button id="listings-voice-btn" class="absolute right-2 text-[#9a9996] hover:text-white bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.12)] w-6.5 h-6.5 rounded-full flex items-center justify-center adw-transition" title="Voice Search Links">
                         <i class="fa-solid fa-microphone text-[10px]"></i>
                     </button>
                 </div>
             </div>
 
-            <div class="flex-1 overflow-y-auto" id="toc-container">
-                <ul class="divide-y divide-gray-800/40" id="toc-list">
+            <div class="flex-1 overflow-y-auto px-2 py-2" id="toc-container">
+                <ul class="space-y-1" id="toc-list">
                     <!-- Parsed PDF Outline/Detected Links go here -->
-                    <li class="p-6 text-center text-sm text-gray-500 italic">Please upload a PDF to extract its native or auto-detected Table of Contents.</li>
+                    <li class="p-6 text-center text-xs text-[#9a9996] italic">Please upload a PDF to extract its native or auto-detected Table of Contents.</li>
                 </ul>
             </div>
         </section>
 
-        <!-- SEARCH RESULTS PANEL -->
-        <div id="search-results-panel" class="absolute left-80 top-0 bottom-0 w-96 bg-gray-950 border-r border-gray-800 shadow-2xl z-30 transform -translate-x-full transition-transform duration-300 ease-in-out flex flex-col hidden">
-            <div class="p-4 bg-gray-900 border-b border-gray-800 flex justify-between items-center">
-                <h3 class="font-bold text-sm tracking-wide text-white flex items-center gap-2">
-                    <i class="fa-solid fa-square-poll-horizontal text-blue-500"></i> SEARCH RESULTS
+        <!-- SEARCH RESULTS PANEL (Popover style matching GNOME) -->
+        <div id="search-results-panel" class="absolute left-80 top-2 bottom-2 w-96 bg-[#303030] border border-[rgba(255,255,255,0.08)] shadow-2xl rounded-xl z-30 transform -translate-x-full transition-transform duration-300 ease-in-out flex flex-col hidden m-2">
+            <div class="p-4 border-b border-[rgba(255,255,255,0.08)] flex justify-between items-center bg-[#3584e4]/10 rounded-t-xl">
+                <h3 class="font-bold text-xs tracking-wide text-[#5195e8] flex items-center gap-2 uppercase">
+                    <i class="fa-solid fa-square-poll-horizontal text-md"></i> Search Results
                 </h3>
-                <button id="close-results" class="text-gray-400 hover:text-white text-xs px-2 py-1 bg-gray-800 rounded">
-                    <i class="fa-solid fa-xmark"></i> Close
+                <button id="close-results" class="text-[#9a9996] hover:text-white text-xs px-2.5 py-1 bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.12)] rounded-md adw-transition">
+                    <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
-            <div class="p-2 bg-gray-900/50 text-xs text-gray-400 border-b border-gray-800/30 flex justify-between items-center">
+            <div class="p-2 bg-[#242424]/40 text-[10px] text-[#9a9996] border-b border-[rgba(255,255,255,0.08)] flex justify-between items-center px-4">
                 <span id="results-count">0 items matched</span>
-                <span id="results-query" class="italic text-red-400"></span>
+                <span id="results-query" class="italic text-[#3584e4]"></span>
             </div>
-            <div class="flex-1 overflow-y-auto p-2 space-y-2" id="search-results-list"></div>
+            <div class="flex-1 overflow-y-auto p-3 space-y-2" id="search-results-list"></div>
         </div>
 
         <!-- MAIN WORKSPACE -->
-        <section class="flex-1 bg-gray-950 flex flex-col relative overflow-hidden">
+        <section class="flex-1 bg-[#242424] flex flex-col relative overflow-hidden">
             
-            <!-- STICKY CONTROLS -->
-            <div class="bg-gray-900/90 border-b border-gray-800 px-4 py-2 flex items-center justify-between gap-4 z-10 sticky top-0 backdrop-blur">
-                <div class="flex items-center gap-1">
-                    <button id="prev-page" class="bg-gray-800 hover:bg-gray-700 text-gray-200 hover:text-white px-3 py-1.5 rounded-lg text-sm transition font-medium flex items-center gap-1 opacity-50 cursor-not-allowed">
-                        <i class="fa-solid fa-chevron-left text-xs"></i> Prev
+            <!-- STICKY CONTROLS (Unified GTK Style Navigation Toolbar) -->
+            <div class="bg-[#303030] border-b border-[rgba(255,255,255,0.08)] px-4 py-2.5 flex items-center justify-between gap-4 z-10 sticky top-0">
+                <div class="flex items-center gap-1.5">
+                    <button id="prev-page" class="bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.12)] text-gray-200 hover:text-white px-3.5 py-1.5 rounded-lg text-xs transition font-medium flex items-center gap-1 opacity-50 cursor-not-allowed">
+                        <i class="fa-solid fa-chevron-left text-[10px]"></i> Prev
                     </button>
-                    <div class="px-3 py-1 bg-gray-950 border border-gray-800 rounded-lg flex items-center gap-1.5 text-xs text-gray-300">
-                        Page <input type="number" id="page-input" value="0" min="1" disabled class="w-10 bg-transparent text-center font-bold text-white focus:outline-none focus:border-blue-500 opacity-50"> / <span id="total-pages">0</span>
+                    <div class="px-3.5 py-1.5 bg-[#1e1e1e] border border-[rgba(255,255,255,0.04)] rounded-lg flex items-center gap-1.5 text-xs text-gray-300 shadow-inner">
+                        Page <input type="number" id="page-input" value="0" min="1" disabled class="w-10 bg-transparent text-center font-bold text-white focus:outline-none opacity-50"> / <span id="total-pages" class="text-[#9a9996]">0</span>
                     </div>
-                    <button id="next-page" class="bg-gray-800 hover:bg-gray-700 text-gray-200 hover:text-white px-3 py-1.5 rounded-lg text-sm transition font-medium flex items-center gap-1 opacity-50 cursor-not-allowed">
-                        Next <i class="fa-solid fa-chevron-right text-xs"></i>
+                    <button id="next-page" class="bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.12)] text-gray-200 hover:text-white px-3.5 py-1.5 rounded-lg text-xs transition font-medium flex items-center gap-1 opacity-50 cursor-not-allowed">
+                        Next <i class="fa-solid fa-chevron-right text-[10px]"></i>
                     </button>
                 </div>
 
-                <!-- VIEW MODE TOGGLES -->
-                <div class="flex items-center bg-gray-950 border border-gray-800 p-0.5 rounded-lg">
-                    <button id="view-mode-dashboard" class="text-xs px-3 py-1 rounded-md font-semibold bg-gray-800 text-white transition-all duration-150 flex items-center gap-1" title="Show Navigable TOC Dashboard">
-                        <i class="fa-solid fa-grip text-[10px]"></i> Index Dashboard
+                <!-- VIEW MODE TOGGLES (GNOME Segmented Controls) -->
+                <div class="flex items-center bg-[#1e1e1e] border border-[rgba(255,255,255,0.04)] p-0.5 rounded-lg">
+                    <button id="view-mode-dashboard" class="text-xs px-4 py-1.5 rounded-md font-semibold bg-[#303030] text-white transition-all duration-150 flex items-center gap-1.5 shadow-sm" title="Show Navigable TOC Dashboard">
+                        <i class="fa-solid fa-grip text-[10px]"></i> Dashboard
                     </button>
-                    <button id="view-mode-canvas" class="text-xs px-3 py-1 rounded-md font-semibold text-gray-400 hover:text-gray-200 transition-all duration-150 flex items-center gap-1" title="View Document Canvas">
-                        <i class="fa-regular fa-image text-[10px]"></i> PDF Viewer
+                    <button id="view-mode-canvas" class="text-xs px-4 py-1.5 rounded-md font-semibold text-[#9a9996] hover:text-gray-200 transition-all duration-150 flex items-center gap-1.5" title="View Document Canvas">
+                        <i class="fa-regular fa-image text-[10px]"></i> Viewer
                     </button>
                 </div>
 
-                <div class="flex items-center gap-1" id="zoom-control-group">
-                    <button id="zoom-out" class="bg-gray-800 hover:bg-gray-700 text-gray-300 p-2 rounded-lg text-xs">
+                <div class="flex items-center gap-1.5" id="zoom-control-group">
+                    <button id="zoom-out" class="bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.12)] text-[#9a9996] hover:text-white p-2 rounded-lg text-xs adw-transition">
                         <i class="fa-solid fa-minus"></i>
                     </button>
-                    <span id="zoom-text" class="text-xs text-gray-400 bg-gray-950 px-2 py-1 rounded border border-gray-800 min-w-[45px] text-center">100%</span>
-                    <button id="zoom-in" class="bg-gray-800 hover:bg-gray-700 text-gray-300 p-2 rounded-lg text-xs">
+                    <span id="zoom-text" class="text-xs text-[#9a9996] bg-[#1e1e1e] px-2.5 py-1.5 rounded-lg border border-[rgba(255,255,255,0.04)] min-w-[50px] text-center shadow-inner">100%</span>
+                    <button id="zoom-in" class="bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.12)] text-[#9a9996] hover:text-white p-2 rounded-lg text-xs adw-transition">
                         <i class="fa-solid fa-plus"></i>
                     </button>
                 </div>
             </div>
 
-            <div class="flex-1 overflow-auto p-4 flex justify-center items-start relative" id="workspace-wrapper">
-                <div id="loader" class="absolute inset-0 flex flex-col justify-center items-center bg-gray-950/80 z-20 hidden">
-                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
-                    <p class="text-sm font-semibold tracking-wider text-gray-300" id="loader-msg">Processing Document...</p>
+            <div class="flex-1 overflow-auto p-6 flex justify-center items-start relative" id="workspace-wrapper">
+                <div id="loader" class="absolute inset-0 flex flex-col justify-center items-center bg-[#242424]/90 z-20 hidden">
+                    <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-[#3584e4] mb-4"></div>
+                    <p class="text-xs font-semibold tracking-wider text-[#9a9996]" id="loader-msg">Processing Document...</p>
                 </div>
 
-                <!-- NEW: NATIVE TOC NAVIGATION DASHBOARD -->
+                <!-- NATIVE TOC NAVIGATION DASHBOARD (AdwGrid View) -->
                 <div id="dashboard-view" class="w-full max-w-6xl mx-auto flex flex-col">
-                    <div id="dashboard-welcome" class="text-center py-20 mt-10 bg-gray-900 border border-gray-800 rounded-xl shadow-2xl">
-                        <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-blue-900/30 text-blue-500 mb-6">
-                            <i class="fa-solid fa-file-pdf text-4xl"></i>
+                    <div id="dashboard-welcome" class="text-center py-20 mt-10 bg-[#303030] border border-[rgba(255,255,255,0.08)] rounded-2xl shadow-sm px-6">
+                        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#3584e4]/10 text-[#3584e4] mb-5 border border-blue-500/20">
+                            <i class="fa-solid fa-file-pdf text-3xl"></i>
                         </div>
-                        <h2 class="text-2xl font-bold text-white mb-2">Native PDF Navigation Engine</h2>
-                        <p class="text-gray-400 max-w-md mx-auto mb-6">Upload your EMS Protocol PDF. The scanner will automatically locate pages containing your printed Table of Contents, extract every internal hyperlink, and map them to interactive dashboard buttons.</p>
-                        <label for="pdf-uploader" class="cursor-pointer inline-block bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-8 rounded-lg shadow-lg transition duration-200">
+                        <h2 class="text-xl font-bold text-white mb-2 tracking-wide">Native PDF Navigation Engine</h2>
+                        <p class="text-[#9a9996] text-xs max-w-md mx-auto mb-6">Upload your EMS Protocol PDF. The scanner will automatically locate pages containing your printed Table of Contents, extract every internal hyperlink, and map them to interactive dashboard buttons.</p>
+                        <label for="pdf-uploader" class="cursor-pointer inline-block bg-[#3584e4] hover:bg-[#5195e8] text-white font-bold py-2.5 px-6 rounded-lg shadow-sm adw-transition text-xs">
                             Select PDF File
                         </label>
                     </div>
 
                     <!-- Filter Area inside Dashboard View for direct touch screen usage -->
-                    <div id="dashboard-filter-bar" class="mb-4 bg-gray-900 p-4 rounded-xl border border-gray-800 flex items-center justify-between gap-4 hidden">
+                    <div id="dashboard-filter-bar" class="mb-4 bg-[#303030] p-4 rounded-xl border border-[rgba(255,255,255,0.08)] flex items-center justify-between gap-4 hidden">
                         <div class="flex items-center gap-2">
-                            <span class="text-blue-500 text-lg"><i class="fa-solid fa-grip"></i></span>
-                            <span class="text-sm font-bold text-gray-200">Protocol Directory Index</span>
+                            <span class="text-[#3584e4] text-md"><i class="fa-solid fa-grip"></i></span>
+                            <span class="text-xs font-bold text-white uppercase tracking-wider">Protocol Directory Index</span>
                         </div>
                         <div class="relative w-72 flex items-center">
-                            <input type="text" id="dashboard-search-input" placeholder="Search listing titles..." 
-                                   class="w-full bg-gray-950 text-gray-100 placeholder-gray-500 text-xs pl-8 pr-8 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-blue-500 transition-all">
-                            <div class="absolute left-2.5 text-gray-500 pointer-events-none">
+                            <input type="text" id="dashboard-search-input" placeholder="Filter listings..." 
+                                   class="w-full bg-[#1e1e1e] text-gray-100 placeholder-[#9a9996] text-xs pl-8 pr-8 py-2 rounded-full border-none focus:outline-none focus:ring-2 focus:ring-[#3584e4]/50 transition-all shadow-inner">
+                            <div class="absolute left-2.5 text-[#9a9996] pointer-events-none">
                                 <i class="fa-solid fa-filter text-[10px]"></i>
                             </div>
-                            <button id="dashboard-voice-btn" class="absolute right-2 text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 w-6 h-6 rounded flex items-center justify-center transition-all" title="Voice Search Links">
+                            <button id="dashboard-voice-btn" class="absolute right-2 text-[#9a9996] hover:text-white bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.12)] w-6 h-6 rounded-full flex items-center justify-center adw-transition" title="Voice Search Links">
                                 <i class="fa-solid fa-microphone text-[10px]"></i>
                             </button>
                         </div>
                     </div>
 
-                    <!-- Populated dynamically from PDF Outline -->
+                    <!-- Populated dynamically from PDF Outline (AdwCard design layout) -->
                     <div id="dashboard-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 hidden">
                         <!-- Buttons injected here -->
                     </div>
                 </div>
 
                 <!-- ORIGINAL CANVAS VIEWER -->
-                <div id="pdf-container" class="relative inline-block shadow-2xl border border-gray-800 bg-white hidden mx-auto" style="line-height: 0; box-shadow: 0 10px 40px rgba(0,0,0,0.5);">
-                    <canvas id="pdf-canvas" class="block"></canvas>
+                <div id="pdf-container" class="relative inline-block border border-[rgba(255,255,255,0.08)] bg-white hidden mx-auto rounded-lg" style="line-height: 0; box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+                    <canvas id="pdf-canvas" class="block rounded-lg"></canvas>
                     <div id="text-layer" class="pdf-text-layer"></div>
                     <div id="annotation-layer" class="absolute top-0 left-0 w-full h-full pointer-events-none z-10"></div>
                 </div>
 
                 <!-- FALLBACK CARD FOR MOCK PROTOCOLS -->
-                <article id="protocol-fallback-card" class="bg-white text-gray-900 w-full max-w-3xl min-h-[900px] p-8 md:p-12 shadow-2xl rounded-lg border border-gray-300 flex flex-col justify-between transition-all duration-300 mx-auto hidden">
+                <article id="protocol-fallback-card" class="bg-white text-gray-900 w-full max-w-3xl min-h-[900px] p-8 md:p-12 shadow-2xl rounded-xl border border-gray-300 flex flex-col justify-between transition-all duration-300 mx-auto hidden">
                     <div>
-                        <div class="border-b-4 border-red-600 pb-4 mb-6 flex justify-between items-start">
+                        <div class="border-b-4 border-[#3584e4] pb-4 mb-6 flex justify-between items-start">
                             <div>
-                                <h2 class="text-xs uppercase tracking-widest text-red-600 font-bold" id="fallback-cat">Standard Clinical Protocol</h2>
-                                <h1 class="text-3xl font-extrabold tracking-tight text-gray-900 mt-1" id="fallback-title">Universal Patient Care</h1>
+                                <h2 class="text-xs uppercase tracking-widest text-[#3584e4] font-bold" id="fallback-cat">Standard Clinical Protocol</h2>
+                                <h1 class="text-2xl font-extrabold tracking-tight text-gray-900 mt-1" id="fallback-title">Universal Patient Care</h1>
                             </div>
-                            <div class="text-right border-l-2 border-gray-300 pl-4 hidden sm:block">
-                                <span class="text-xs font-bold text-gray-500 block uppercase tracking-wider">STATE EMS SYSTEM</span>
-                                <span class="text-xs bg-red-100 text-red-800 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider mt-1 inline-block">ACUTE CARE</span>
+                            <div class="text-right border-l-2 border-gray-200 pl-4 hidden sm:block">
+                                <span class="text-xs font-bold text-gray-400 block uppercase tracking-wider">STATE EMS SYSTEM</span>
+                                <span class="text-[10px] bg-blue-50 text-[#3584e4] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider mt-1 inline-block">ACUTE CARE</span>
                             </div>
                         </div>
 
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-6 text-xs font-bold text-center">
-                            <div class="bg-gray-100 p-2 rounded border border-gray-200">
-                                <span class="text-gray-500 block text-[9px] uppercase">EMR</span>
+                            <div class="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                <span class="text-gray-400 block text-[9px] uppercase">EMR</span>
                                 <span class="text-emerald-700 flex items-center justify-center gap-1 mt-0.5"><i class="fa-solid fa-circle-check"></i> Basic Care</span>
                             </div>
-                            <div class="bg-gray-100 p-2 rounded border border-gray-200">
-                                <span class="text-gray-500 block text-[9px] uppercase">EMT</span>
+                            <div class="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                <span class="text-gray-400 block text-[9px] uppercase">EMT</span>
                                 <span class="text-emerald-700 flex items-center justify-center gap-1 mt-0.5"><i class="fa-solid fa-circle-check"></i> Standard Care</span>
                             </div>
-                            <div class="bg-gray-100 p-2 rounded border border-gray-200">
-                                <span class="text-gray-500 block text-[9px] uppercase">AEMT</span>
+                            <div class="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                <span class="text-gray-400 block text-[9px] uppercase">AEMT</span>
                                 <span class="text-blue-700 flex items-center justify-center gap-1 mt-0.5"><i class="fa-solid fa-circle-plus"></i> Advanced Iv</span>
                             </div>
-                            <div class="bg-gray-100 p-2 rounded border border-gray-200">
-                                <span class="text-gray-500 block text-[9px] uppercase">PARAMEDIC</span>
+                            <div class="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                <span class="text-gray-400 block text-[9px] uppercase">PARAMEDIC</span>
                                 <span class="text-red-700 flex items-center justify-center gap-1 mt-0.5"><i class="fa-solid fa-shield-halved"></i> Full Scope</span>
                             </div>
                         </div>
@@ -293,8 +324,9 @@
         </section>
     </main>
 
-    <div id="voice-toast" class="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white font-semibold text-xs py-3 px-6 rounded-full shadow-2xl flex items-center gap-3 border border-blue-500 transition-all duration-300 opacity-0 pointer-events-none z-50">
-        <i class="fa-solid fa-microphone-lines animate-pulse text-sm"></i>
+    <!-- ADWAITA TOAST NOTIFICATION -->
+    <div id="voice-toast" class="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-[#303030] text-white font-semibold text-xs py-3 px-6 rounded-full shadow-2xl flex items-center gap-3 border border-[rgba(255,255,255,0.08)] transition-all duration-300 opacity-0 pointer-events-none z-50">
+        <i class="fa-solid fa-microphone-lines animate-pulse text-[#3584e4] text-sm"></i>
         <span>LISTENING: SAY A PROTOCOL OR SYMPTOM</span>
     </div>
 
@@ -402,16 +434,16 @@
         function setViewMode(mode) {
             activeView = mode;
             if (mode === 'dashboard') {
-                ui.btnModeDashboard.className = "text-xs px-3 py-1 rounded-md font-semibold bg-gray-800 text-white transition-all duration-150 flex items-center gap-1";
-                ui.btnModeCanvas.className = "text-xs px-3 py-1 rounded-md font-semibold text-gray-400 hover:text-gray-200 transition-all duration-150 flex items-center gap-1";
+                ui.btnModeDashboard.className = "text-xs px-4 py-1.5 rounded-md font-semibold bg-[#303030] text-white transition-all duration-150 flex items-center gap-1.5 shadow-sm";
+                ui.btnModeCanvas.className = "text-xs px-4 py-1.5 rounded-md font-semibold text-[#9a9996] hover:text-gray-200 transition-all duration-150 flex items-center gap-1.5";
                 
                 ui.pdfContainer.classList.add('hidden');
                 ui.fallbackCard.classList.add('hidden');
                 ui.dashboardView.classList.remove('hidden');
                 ui.scrapeCurrentBtn.classList.add('hidden');
             } else {
-                ui.btnModeCanvas.className = "text-xs px-3 py-1 rounded-md font-semibold bg-gray-800 text-white transition-all duration-150 flex items-center gap-1";
-                ui.btnModeDashboard.className = "text-xs px-3 py-1 rounded-md font-semibold text-gray-400 hover:text-gray-200 transition-all duration-150 flex items-center gap-1";
+                ui.btnModeCanvas.className = "text-xs px-4 py-1.5 rounded-md font-semibold bg-[#303030] text-white transition-all duration-150 flex items-center gap-1.5 shadow-sm";
+                ui.btnModeDashboard.className = "text-xs px-4 py-1.5 rounded-md font-semibold text-[#9a9996] hover:text-gray-200 transition-all duration-150 flex items-center gap-1.5";
                 
                 ui.dashboardView.classList.add('hidden');
                 
@@ -554,7 +586,7 @@
                         linkNode.style.width = width + 'px';
                         linkNode.style.height = height + 'px';
                         linkNode.style.pointerEvents = 'auto';
-                        linkNode.className = "cursor-pointer bg-blue-500/10 hover:bg-blue-500/40 transition-colors border border-transparent hover:border-blue-400/50 rounded";
+                        linkNode.className = "cursor-pointer bg-[#3584e4]/10 hover:bg-[#3584e4]/25 transition-colors border border-transparent hover:border-[#3584e4]/30 rounded";
 
                         if (anno.url) {
                             linkNode.href = anno.url;
@@ -637,6 +669,7 @@
             
             sortedItems.forEach(item => {
                 const y = item.transform[5];
+                // Environment-agnostic Y-coordinate baselining (5px threshold absorbs different system font fallbacks)
                 let row = rows.find(r => Math.abs(r.y - y) < 5);
                 if (row) {
                     row.items.push(item);
@@ -695,6 +728,7 @@
             ui.loaderMsg.textContent = "Extracting Table of Contents from pages 3-7...";
             pdfOutlineData = [];
             
+            // Explicitly target pages 3 through 7
             const startPage = Math.min(3, pdfDoc.numPages);
             const endPage = Math.min(7, pdfDoc.numPages);
 
@@ -723,6 +757,7 @@
             const annotations = await page.getAnnotations();
             const linkAnnos = annotations.filter(a => a.subtype === 'Link');
 
+            // Partition page elements into clean rows to isolate adjacent link baselines
             const groupedRows = groupTextItemsIntoRows(textItems);
 
             linkAnnos.forEach(anno => {
@@ -730,9 +765,11 @@
                 const linkMinX = Math.min(rect[0], rect[2]);
                 const linkMaxX = Math.max(rect[0], rect[2]);
                 
+                // Map the active link precisely to its corresponding text row
                 const matchedRow = findClosestRowForRect(rect, groupedRows);
                 if (!matchedRow) return;
 
+                // Establish a hard horizontal limit on the left to prevent cross-column contamination
                 let leftLinkLimitX = 0;
                 linkAnnos.forEach(other => {
                     if (other === anno) return;
@@ -741,6 +778,7 @@
                     const otherMaxX = Math.max(otherRect[0], otherRect[2]);
                     
                     const otherRow = findClosestRowForRect(otherRect, groupedRows);
+                    // If there is another link directly on this same horizontal row and sitting to its left
                     if (otherRow === matchedRow && otherMaxX < linkMinX) {
                         if (otherMaxX > leftLinkLimitX) {
                             leftLinkLimitX = otherMaxX;
@@ -748,11 +786,13 @@
                     }
                 });
 
+                // Filter row elements strictly sitting between the left horizontal limit and this link box
                 const rowTextItems = matchedRow.items.filter(item => {
                     const x = item.transform[4];
                     return x >= leftLinkLimitX && x <= linkMaxX + 5;
                 });
 
+                // Find the index of the first item overlapping the active link
                 let linkItemIndex = -1;
                 for (let i = rowTextItems.length - 1; i >= 0; i--) {
                     const item = rowTextItems[i];
@@ -764,6 +804,7 @@
                     }
                 }
 
+                // If no direct overlap, align to closest leftwards sibling
                 if (linkItemIndex === -1) {
                     for (let i = rowTextItems.length - 1; i >= 0; i--) {
                         if (rowTextItems[i].transform[4] < linkMinX) {
@@ -773,6 +814,7 @@
                     }
                 }
 
+                // Gap-Aware Backward Walker: Gathers items to the left until we cross a gap > 70px (column break)
                 let accumulatedItems = [];
                 if (linkItemIndex !== -1) {
                     accumulatedItems.push(rowTextItems[linkItemIndex]);
@@ -784,6 +826,7 @@
                         const currentW = currentItem.width || (currentItem.str.length * 5);
                         const gap = lastX - (currentX + currentW);
 
+                        // Stop if we hit a sibling link boundary or a column break gap (>70px)
                         if (currentX + currentW < leftLinkLimitX || gap > 70) {
                             break;
                         }
@@ -810,6 +853,7 @@
                     return;
                 }
 
+                // Clean spaces and formatting dots
                 label = label.replace(/\s+/g, ' ').replace(/\.+/g, '.').trim();
 
                 pdfOutlineData.push({
@@ -858,51 +902,68 @@
 
             if (filteredOutline.length === 0) {
                 if (listingsFilterQuery !== "") {
-                    // Show "No matches" specifically for filtered searches
+                    // Show "No matches" specifically for filtered searches (AdwCard alert style)
                     ui.dashboardGrid.innerHTML = `
-                        <div class="col-span-full text-center py-10 bg-gray-900 border border-gray-800 rounded-lg p-6">
-                            <i class="fa-solid fa-magnifying-glass text-gray-500 text-3xl mb-3"></i>
-                            <h3 class="text-white font-bold">No Matches Found</h3>
-                            <p class="text-gray-400 text-sm mt-1">No index listings match the term "${listingsFilterQuery}". Try refining your search query.</p>
+                        <div class="col-span-full text-center py-10 bg-[#303030] border border-[rgba(255,255,255,0.08)] rounded-xl p-6">
+                            <i class="fa-solid fa-magnifying-glass text-[#9a9996] text-3xl mb-3"></i>
+                            <h3 class="text-white font-bold text-sm">No Matches Found</h3>
+                            <p class="text-[#9a9996] text-xs mt-1">No index listings match the term "${listingsFilterQuery}". Try refining your search query.</p>
                         </div>
                     `;
                 } else {
                     ui.dashboardGrid.innerHTML = `
-                        <div class="col-span-full text-center py-10 bg-gray-900 border border-gray-800 rounded-lg p-6">
-                            <i class="fa-solid fa-triangle-exclamation text-yellow-500 text-3xl mb-3"></i>
-                            <h3 class="text-white font-bold">No Interactive Links Scraped Yet</h3>
-                            <p class="text-gray-400 text-sm mt-1">We couldn't automatically detect Table of Contents links. You can navigate manually in the PDF Viewer and click "Use Page as Dashboard" to pull interactive buttons directly off any page!</p>
-                            <button onclick="setViewMode('canvas')" class="mt-4 bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded font-bold text-sm">Open PDF Viewer</button>
+                        <div class="col-span-full text-center py-10 bg-[#303030] border border-[rgba(255,255,255,0.08)] rounded-xl p-6">
+                            <i class="fa-solid fa-triangle-exclamation text-amber-500 text-3xl mb-3"></i>
+                            <h3 class="text-white font-bold text-sm">No Interactive Links Scraped Yet</h3>
+                            <p class="text-[#9a9996] text-xs mt-1">We couldn't automatically detect Table of Contents links. You can navigate manually in the PDF Viewer and click "Use Page as Dashboard" to pull interactive buttons directly off any page!</p>
+                            <button onclick="setViewMode('canvas')" class="mt-4 bg-[#3584e4] hover:bg-[#5195e8] text-white px-6 py-2 rounded-lg font-bold text-xs adw-transition">Open PDF Viewer</button>
                         </div>
                     `;
                 }
-                ui.tocList.innerHTML = `<li class="p-4 text-xs text-gray-500 italic">No links match filter criteria.</li>`;
+                ui.tocList.innerHTML = `<li class="p-4 text-xs text-[#9a9996] italic text-center">No links match filter criteria.</li>`;
                 ui.docPageCount.textContent = `0 Targets`;
                 return;
             }
 
             filteredOutline.forEach((item, index) => {
+                // 1. Grid Dashboard Card (GTK4/AdwCard Design Style with enhanced standard gap-6 layout spacing)
                 const btn = document.createElement('div');
-                btn.className = "bg-gray-900 border border-gray-800 hover:border-blue-500/50 hover:bg-gray-800 p-5 rounded-xl cursor-pointer shadow-lg transition-all duration-200 group flex items-start gap-4";
+                btn.className = "bg-[#303030] border border-[rgba(255,255,255,0.08)] hover:border-[#3584e4]/40 hover:bg-[#383838] p-4.5 rounded-xl cursor-pointer shadow-sm transition-all duration-150 group flex items-center gap-3";
                 
                 let icon = "fa-file-lines";
+                let iconColor = "text-[#9a9996]";
                 let lowerTitle = item.title.toLowerCase();
-                if (lowerTitle.includes('cardiac') || lowerTitle.includes('heart')) icon = "fa-heart-pulse text-red-500";
-                else if (lowerTitle.includes('trauma')) icon = "fa-crutch text-orange-500";
-                else if (lowerTitle.includes('airway') || lowerTitle.includes('breath')) icon = "fa-lungs text-blue-400";
-                else if (lowerTitle.includes('med') || lowerTitle.includes('drug') || lowerTitle.includes('pharm')) icon = "fa-pills text-purple-400";
-                else if (lowerTitle.includes('pediatric') || lowerTitle.includes('child')) icon = "fa-child-reaching text-green-400";
-                else if (item.url) icon = "fa-arrow-up-right-from-square text-teal-400";
-                else icon = "fa-file-waveform text-gray-400 group-hover:text-blue-400";
+                
+                if (lowerTitle.includes('cardiac') || lowerTitle.includes('heart')) {
+                    icon = "fa-heart-pulse";
+                    iconColor = "text-red-500 bg-red-500/10 border-red-500/20";
+                } else if (lowerTitle.includes('trauma')) {
+                    icon = "fa-crutch";
+                    iconColor = "text-orange-500 bg-orange-500/10 border-orange-500/20";
+                } else if (lowerTitle.includes('airway') || lowerTitle.includes('breath')) {
+                    icon = "fa-lungs";
+                    iconColor = "text-blue-400 bg-blue-500/10 border-blue-500/20";
+                } else if (lowerTitle.includes('med') || lowerTitle.includes('drug') || lowerTitle.includes('pharm')) {
+                    icon = "fa-pills";
+                    iconColor = "text-purple-400 bg-purple-500/10 border-purple-500/20";
+                } else if (lowerTitle.includes('pediatric') || lowerTitle.includes('child')) {
+                    icon = "fa-child-reaching";
+                    iconColor = "text-green-400 bg-green-500/10 border-green-500/20";
+                } else if (item.url) {
+                    icon = "fa-arrow-up-right-from-square";
+                    iconColor = "text-teal-400 bg-teal-500/10 border-teal-500/20";
+                } else {
+                    iconColor = "text-[#3584e4] bg-[#3584e4]/10 border-[#3584e4]/20";
+                }
 
                 btn.innerHTML = `
-                    <div class="mt-1 bg-gray-950 p-2 rounded-lg border border-gray-800 group-hover:border-blue-500/30 transition-colors">
-                        <i class="fa-solid ${icon} text-lg w-6 text-center"></i>
+                    <div class="p-2.5 rounded-lg border flex items-center justify-center shrink-0 ${iconColor} group-hover:scale-105 transition-transform">
+                        <i class="fa-solid ${icon} text-md w-5 text-center"></i>
                     </div>
                     <div class="flex-1 min-w-0">
-                        <h3 class="text-sm font-bold text-gray-100 group-hover:text-white leading-snug truncate">${item.title}</h3>
-                        <p class="text-[10px] text-blue-500 mt-1 font-semibold uppercase tracking-wider">
-                            ${item.url ? 'Open Resource' : 'Jump to Section'} <i class="fa-solid fa-arrow-right ml-1"></i>
+                        <h3 class="text-xs font-bold text-white group-hover:text-white leading-normal truncate">${item.title}</h3>
+                        <p class="text-[10px] text-[#3584e4] mt-1 font-semibold uppercase tracking-wider flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                            ${item.url ? 'Open Resource' : 'Jump to Section'} <i class="fa-solid fa-arrow-right text-[8px]"></i>
                         </p>
                     </div>
                 `;
@@ -916,15 +977,16 @@
                 };
                 ui.dashboardGrid.appendChild(btn);
 
+                // 2. Sidebar Navigation Entry (Standard GNOME Sidebar List styling with increased item title gap spacing)
                 const li = document.createElement('li');
-                li.className = "toc-item group flex justify-between items-center py-2.5 px-4 cursor-pointer border-b border-gray-800/40 hover:bg-gray-800/60 transition-all duration-150";
+                li.className = "toc-item group flex justify-between items-center py-2 px-3 mx-1 rounded-lg cursor-pointer hover:bg-[rgba(255,255,255,0.06)] transition-all duration-100";
                 
                 li.innerHTML = `
-                    <div class="flex items-center gap-2 overflow-hidden pr-2">
-                        <i class="fa-solid ${item.url ? 'fa-arrow-up-right-from-square text-teal-400' : 'fa-link text-blue-400'} text-[10px]"></i>
-                        <span class="text-xs font-bold text-gray-200 group-hover:text-blue-400 truncate">${item.title}</span>
+                    <div class="flex items-center gap-3.5 overflow-hidden pr-2">
+                        <i class="fa-solid ${item.url ? 'fa-arrow-up-right-from-square text-teal-400' : 'fa-link text-[#3584e4]'} text-[10px]"></i>
+                        <span class="text-xs font-bold text-gray-200 group-hover:text-white truncate">${item.title}</span>
                     </div>
-                    <span class="text-[9px] bg-gray-950 text-gray-500 group-hover:text-blue-400 px-1.5 py-0.5 rounded border border-gray-800 shrink-0">Link ${index + 1}</span>
+                    <span class="text-[9px] text-[#9a9996] bg-[#303030] group-hover:bg-[#242424] group-hover:text-[#3584e4] px-2 py-0.5 rounded-full border border-[rgba(255,255,255,0.04)] shrink-0 transition-colors">Target</span>
                 `;
                 li.onclick = () => {
                     if (item.url) {
@@ -993,7 +1055,7 @@
                 rawResults.forEach(item => {
                     const itemData = item.item;
                     const div = document.createElement('div');
-                    div.className = "bg-gray-900 border border-gray-800 hover:border-blue-500/50 p-3 rounded-lg cursor-pointer transition-all duration-150 group";
+                    div.className = "bg-[#242424] border border-[rgba(255,255,255,0.06)] hover:border-[#3584e4]/40 p-3 rounded-lg cursor-pointer transition-all duration-150 group";
                     
                     let previewText = "";
                     const textIdx = itemData.text.toLowerCase().indexOf(query.toLowerCase());
@@ -1007,10 +1069,10 @@
 
                     div.innerHTML = `
                         <div class="flex justify-between items-start mb-1">
-                            <span class="text-[9px] bg-blue-900/30 text-blue-400 font-bold px-1.5 py-0.5 rounded border border-blue-900/50">PAGE ${itemData.page}</span>
+                            <span class="text-[9px] bg-[#3584e4]/15 text-[#3584e4] font-bold px-2 py-0.5 rounded-full border border-blue-500/20">PAGE ${itemData.page}</span>
                         </div>
                         <h4 class="text-xs font-bold text-gray-100 group-hover:text-white transition-colors">${itemData.title}</h4>
-                        <p class="text-[11px] text-gray-400 mt-1 line-clamp-2">${previewText}</p>
+                        <p class="text-[11px] text-[#9a9996] mt-1 line-clamp-2">${previewText}</p>
                     `;
 
                     div.onclick = () => {
@@ -1021,7 +1083,7 @@
                     ui.resultsList.appendChild(div);
                 });
             } else {
-                ui.resultsList.innerHTML = `<div class="text-center py-6 text-gray-500 text-xs">No matches found in text.</div>`;
+                ui.resultsList.innerHTML = `<div class="text-center py-6 text-[#9a9996] text-xs">No matches found in text.</div>`;
             }
 
             ui.resultsPanel.classList.remove('hidden', '-translate-x-full');
