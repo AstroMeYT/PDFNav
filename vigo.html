@@ -104,7 +104,7 @@
 
         <div class="flex items-center gap-2">
             <!-- Scrape Current Button -->
-            <button id="scrape-current-btn" class="hidden" title="Scrape links on the current page to use as dashboard buttons">
+            <button id="scrape-current-btn" class="hidden bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.12)] text-[#5195e8] border border-[rgba(255,255,255,0.04)] px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 adw-transition" title="Scrape links on the current page to use as dashboard buttons">
             </button>
             <label for="pdf-uploader" class="cursor-pointer bg-[#3584e4] hover:bg-[#5195e8] text-white px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 shadow-sm adw-transition">
                 <i class="fa-solid fa-file-pdf"></i>
@@ -1283,7 +1283,7 @@
         }
 
         window.onload = function () {
-            loadPdfFromTextFile('https://astromeyt.github.io/PDFNav/vigo-source.txt');
+            loadPdfFromTextFile('vigo-source.txt');
         }
     </script>
 </body>
