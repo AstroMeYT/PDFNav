@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EMS PDF Navigator & Outline Dashboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Fuse.js -->
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0/dist/fuse.basic.min.js"></script>
+    <!-- PDF.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* Adwaita Design Variables */
+        :root {
+            --window-bg: #242424;
+            --view-bg: #1e1e1e;
+            --card-bg: #303030;
+            --accent-bg: #3584e4;
+            --accent-hover: #5195e8;
+            --headerbar-bg: #303030;
+            --text-color: #ffffff;
+            --dim-text: #9a9996;
+            --border-color: rgba(255, 255, 255, 0.08);
+            --popover-bg: #383838;
+        }
+
+        /* Customize Scrollbars to look like GNOME scrollbars */
+        ::-webkit-scrollbar { 
+            width: 8px; 
+            height: 8px; 
+        }
+        ::-webkit-scrollbar-track { 
+            background: transparent; 
+        }
+        ::-webkit-scrollbar-thumb { 
+            background: rgba(255, 255, 255, 0.15); 
+            border-radius: 9999px;
+            border: 2px solid var(--window-bg);
+        }
+        ::-webkit-scrollbar-thumb:hover { 
+            background: rgba(255, 255, 255, 0.3); 
+        }
+        
+        @keyframes record-pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(53, 132, 228, 0.7); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 8px rgba(53, 132, 228, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(53, 132, 228, 0); }
+        }
+        .voice-active {
+            animation: record-pulse 1.5s infinite;
+            background-color: var(--accent-bg) !important;
+            color: #ffffff !important;
+        }
+
+        /* Interactive Text Layer for PDF Canvas */
+        .pdf-text-layer {
+            position: absolute;
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+            line-height: 1.0;
+            pointer-events: auto;
+            z-index: 5;
+        }
+        .pdf-text-layer > span {
+            color: transparent;
+            position: absolute;
+            white-space: pre;
+            cursor: text;
+            transform-origin: 0% 0%;
+        }
+        .pdf-text-layer ::selection {
+            background: rgba(53, 132, 228, 0.3);
+            color: transparent;
+        }
+
+        /* UI Animations */
+        .adw-transition {
+            transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+    </style>
+</head>
+<body class="bg-[#242424] text-white flex flex-col h-screen overflow-hidden font-sans select-none antialiased">
+
+    <!-- TOP HEADER -->
+    <header class="bg-[#303030] border-b border-[rgba(255,255,255,0.08)] px-4 py-2.5 flex flex-wrap items-center justify-between gap-4 z-20 shadow-sm">
+        <div class="flex items-center gap-3">
+            <div class="bg-[#3584e4] text-white w-9 h-9 rounded-lg shadow-sm flex items-center justify-center adw-transition">
+                <i class="fa-solid fa-truck-medical text-md"></i>
+            </div>
+            <div>
+                <h1 class="text-sm font-bold text-white tracking-wide flex items-center gap-2">
+                    PDFNav
+                </h1>
+                <p class="text-[10px] text-[#9a9996] font-medium tracking-wide">Protocol PDF Navigator</p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+            <!-- Scrape Current Button -->
+            <button id="scrape-current-btn" class="hidden" title="Scrape links on the current page to use as dashboard buttons">
+            </button>
+            <label for="pdf-uploader" class="cursor-pointer bg-[#3584e4] hover:bg-[#5195e8] text-white px-4 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 shadow-sm adw-transition">
+                <i class="fa-solid fa-file-pdf"></i>
+                <span id="upload-label">Load PDF Document</span>
+            </label>
+            <input type="file" id="pdf-uploader" accept=".pdf" class="hidden">
+            <button id="reset-doc" class="hidden text-[#9a9996] hover:text-white bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.12)] p-2 rounded-lg adw-transition text-xs" title="Reset">
+                <i class="fa-solid fa-rotate-left"></i>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex flex-1 overflow-hidden relative">
+
+        <!-- LEFT SIDEBAR -->
+        <section class="w-80 bg-[#1e1e1e] border-r border-[rgba(255,255,255,0.08)] flex flex-col z-10" id="sidebar">
+            <!-- Search bar for Full Document Search -->
+            <div class="p-4 border-b border-[rgba(255,255,255,0.05)] bg-[#1e1e1e]">
+                <label class="block text-[10px] font-bold text-[#9a9996] uppercase tracking-wider mb-2">Search Page Text (Full PDF)</label>
+                <div class="relative flex items-center">
+                    <input type="text" id="search-input" placeholder="Search page contents..." 
+                           class="w-full bg-[#303030] text-gray-100 placeholder-[#9a9996] text-xs pl-8 pr-8 py-2.5 rounded-full border-none focus:outline-none focus:ring-2 focus:ring-[#3584e4]/50 transition-all shadow-inner">
+                    <div class="absolute left-3 text-[#9a9996] pointer-events-none">
+                        <i class="fa-solid fa-magnifying-glass text-[10px]"></i>
+                    </div>
+                    <button id="voice-btn" class="absolute right-2 text-[#9a9996] hover:text-white bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.12)] w-6.5 h-6.5 rounded-full flex items-center justify-center adw-transition" title="Voice Search Document">
+                        <i class="fa-solid fa-microphone text-[10px]"></i>
+                    </button>
+                </div>
+                <div id="indexing-progress" class="hidden mt-3">
+                    <div class="flex justify-between text-[10px] text-[#9a9996] mb-1">
+                        <span>Background Text Extraction...</span>
+                        <span id="progress-percent">0%</span>
+                    </div>
+                    <div class="w-full bg-[#303030] rounded-full h-1">
+                        <div id="progress-bar" class="bg-[#3584e4] h-1 rounded-full transition-all duration-100" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table of Contents Section header -->
+            <div class="px-4 py-2 bg-[#1e1e1e] border-b border-[rgba(255,255,255,0.05)] flex justify-between items-center">
+                <span class="text-[10px] font-bold text-[#9a9996] uppercase tracking-wider">Detected Links List</span>
+                <span id="doc-page-count" class="text-[10px] text-[#9a9996] bg-[#303030] px-2 py-0.5 rounded-full">Ready</span>
+            </div>
+
+            <!-- Scraped List Filtering Search Bar -->
+            <div class="p-3 border-b border-[rgba(255,255,255,0.05)] bg-[#1e1e1e]">
+                <div class="relative flex items-center">
+                    <input type="text" id="listings-search-input" placeholder="Filter detected links..." 
+                           class="w-full bg-[#303030] text-gray-100 placeholder-[#9a9996] text-xs pl-8 pr-8 py-2 rounded-full border-none focus:outline-none focus:ring-2 focus:ring-[#3584e4]/50 transition-all">
+                    <div class="absolute left-3 text-[#9a9996] pointer-events-none">
+                        <i class="fa-solid fa-filter text-[10px]"></i>
+                    </div>
+                    <button id="listings-voice-btn" class="absolute right-2 text-[#9a9996] hover:text-white bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.12)] w-6.5 h-6.5 rounded-full flex items-center justify-center adw-transition" title="Voice Search Links">
+                        <i class="fa-solid fa-microphone text-[10px]"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto px-2 py-2" id="toc-container">
+                <ul class="space-y-1" id="toc-list">
+                    <!-- Parsed PDF Outline/Detected Links go here -->
+                    <li class="p-6 text-center text-xs text-[#9a9996] italic">Please upload a PDF to extract its native or auto-detected Table of Contents.</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- SEARCH RESULTS PANEL (Popover style matching GNOME) -->
+        <div id="search-results-panel" class="absolute left-80 top-2 bottom-2 w-96 bg-[#303030] border border-[rgba(255,255,255,0.08)] shadow-2xl rounded-xl z-30 transform -translate-x-full transition-transform duration-300 ease-in-out flex flex-col hidden m-2">
+            <div class="p-4 border-b border-[rgba(255,255,255,0.08)] flex justify-between items-center bg-[#3584e4]/10 rounded-t-xl">
+                <h3 class="font-bold text-xs tracking-wide text-[#5195e8] flex items-center gap-2 uppercase">
+                    <i class="fa-solid fa-square-poll-horizontal text-md"></i> Search Results
+                </h3>
+                <button id="close-results" class="text-[#9a9996] hover:text-white text-xs px-2.5 py-1 bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.12)] rounded-md adw-transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="p-2 bg-[#242424]/40 text-[10px] text-[#9a9996] border-b border-[rgba(255,255,255,0.08)] flex justify-between items-center px-4">
+                <span id="results-count">0 items matched</span>
+                <span id="results-query" class="italic text-[#3584e4]"></span>
+            </div>
+            <div class="flex-1 overflow-y-auto p-3 space-y-2" id="search-results-list"></div>
+        </div>
+
+        <!-- MAIN WORKSPACE -->
+        <section class="flex-1 bg-[#242424] flex flex-col relative overflow-hidden">
+            
+            <!-- STICKY CONTROLS (Unified GTK Style Navigation Toolbar) -->
+            <div class="bg-[#303030] border-b border-[rgba(255,255,255,0.08)] px-4 py-2.5 flex items-center justify-between gap-4 z-10 sticky top-0">
+                <div class="flex items-center gap-1.5">
+                    <button id="prev-page" class="bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.12)] text-gray-200 hover:text-white px-3.5 py-1.5 rounded-lg text-xs transition font-medium flex items-center gap-1 opacity-50 cursor-not-allowed">
+                        <i class="fa-solid fa-chevron-left text-[10px]"></i> Prev
+                    </button>
+                    <div class="px-3.5 py-1.5 bg-[#1e1e1e] border border-[rgba(255,255,255,0.04)] rounded-lg flex items-center gap-1.5 text-xs text-gray-300 shadow-inner">
+                        Page <input type="number" id="page-input" value="0" min="1" disabled class="w-10 bg-transparent text-center font-bold text-white focus:outline-none opacity-50"> / <span id="total-pages" class="text-[#9a9996]">0</span>
+                    </div>
+                    <button id="next-page" class="bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.12)] text-gray-200 hover:text-white px-3.5 py-1.5 rounded-lg text-xs transition font-medium flex items-center gap-1 opacity-50 cursor-not-allowed">
+                        Next <i class="fa-solid fa-chevron-right text-[10px]"></i>
+                    </button>
+                </div>
+
+                <!-- VIEW MODE TOGGLES (GNOME Segmented Controls) -->
+                <div class="flex items-center bg-[#1e1e1e] border border-[rgba(255,255,255,0.04)] p-0.5 rounded-lg">
+                    <button id="view-mode-dashboard" class="text-xs px-4 py-1.5 rounded-md font-semibold bg-[#303030] text-white transition-all duration-150 flex items-center gap-1.5 shadow-sm" title="Show Navigable TOC Dashboard">
+                        <i class="fa-solid fa-grip text-[10px]"></i> Dashboard
+                    </button>
+                    <button id="view-mode-canvas" class="text-xs px-4 py-1.5 rounded-md font-semibold text-[#9a9996] hover:text-gray-200 transition-all duration-150 flex items-center gap-1.5" title="View Document Canvas">
+                        <i class="fa-regular fa-image text-[10px]"></i> Viewer
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-1.5" id="zoom-control-group">
+                    <button id="zoom-out" class="bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.12)] text-[#9a9996] hover:text-white p-2 rounded-lg text-xs adw-transition">
+                        <i class="fa-solid fa-minus"></i>
+                    </button>
+                    <span id="zoom-text" class="text-xs text-[#9a9996] bg-[#1e1e1e] px-2.5 py-1.5 rounded-lg border border-[rgba(255,255,255,0.04)] min-w-[50px] text-center shadow-inner">100%</span>
+                    <button id="zoom-in" class="bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.12)] text-[#9a9996] hover:text-white p-2 rounded-lg text-xs adw-transition">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-auto p-6 flex justify-center items-start relative" id="workspace-wrapper">
+                <div id="loader" class="absolute inset-0 flex flex-col justify-center items-center bg-[#242424]/90 z-20 hidden">
+                    <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-[#3584e4] mb-4"></div>
+                    <p class="text-xs font-semibold tracking-wider text-[#9a9996]" id="loader-msg">Processing Document...</p>
+                </div>
+
+                <!-- NATIVE TOC NAVIGATION DASHBOARD (AdwGrid View) -->
+                <div id="dashboard-view" class="w-full max-w-6xl mx-auto flex flex-col">
+                    <div id="dashboard-welcome" class="text-center py-20 mt-10 bg-[#303030] border border-[rgba(255,255,255,0.08)] rounded-2xl shadow-sm px-6">
+                        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-[#3584e4]/10 text-[#3584e4] mb-5 border border-blue-500/20">
+                            <i class="fa-solid fa-file-pdf text-3xl"></i>
+                        </div>
+                        <h2 class="text-xl font-bold text-white mb-2 tracking-wide">Native PDF Navigation Engine</h2>
+                        <p class="text-[#9a9996] text-xs max-w-md mx-auto mb-6">Upload your EMS Protocol PDF. The scanner will automatically locate pages containing your printed Table of Contents, extract every internal hyperlink, and map them to interactive dashboard buttons.</p>
+                        <label for="pdf-uploader" class="cursor-pointer inline-block bg-[#3584e4] hover:bg-[#5195e8] text-white font-bold py-2.5 px-6 rounded-lg shadow-sm adw-transition text-xs">
+                            Select PDF File
+                        </label>
+                    </div>
+
+                    <!-- Filter Area inside Dashboard View for direct touch screen usage -->
+                    <div id="dashboard-filter-bar" class="mb-4 bg-[#303030] p-4 rounded-xl border border-[rgba(255,255,255,0.08)] flex items-center justify-between gap-4 hidden">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[#3584e4] text-md"><i class="fa-solid fa-grip"></i></span>
+                            <span class="text-xs font-bold text-white uppercase tracking-wider">Protocol Directory Index</span>
+                        </div>
+                        <div class="relative w-72 flex items-center">
+                            <input type="text" id="dashboard-search-input" placeholder="Filter listings..." 
+                                   class="w-full bg-[#1e1e1e] text-gray-100 placeholder-[#9a9996] text-xs pl-8 pr-8 py-2 rounded-full border-none focus:outline-none focus:ring-2 focus:ring-[#3584e4]/50 transition-all shadow-inner">
+                            <div class="absolute left-2.5 text-[#9a9996] pointer-events-none">
+                                <i class="fa-solid fa-filter text-[10px]"></i>
+                            </div>
+                            <button id="dashboard-voice-btn" class="absolute right-2 text-[#9a9996] hover:text-white bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.12)] w-6 h-6 rounded-full flex items-center justify-center adw-transition" title="Voice Search Links">
+                                <i class="fa-solid fa-microphone text-[10px]"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Populated dynamically from PDF Outline (AdwCard design layout) -->
+                    <div id="dashboard-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 hidden">
+                        <!-- Buttons injected here -->
+                    </div>
+                </div>
+
+                <!-- ORIGINAL CANVAS VIEWER -->
+                <div id="pdf-container" class="relative inline-block border border-[rgba(255,255,255,0.08)] bg-white hidden mx-auto rounded-lg" style="line-height: 0; box-shadow: 0 10px 30px rgba(0,0,0,0.4);">
+                    <canvas id="pdf-canvas" class="block rounded-lg"></canvas>
+                    <div id="text-layer" class="pdf-text-layer"></div>
+                    <div id="annotation-layer" class="absolute top-0 left-0 w-full h-full pointer-events-none z-10"></div>
+                </div>
+
+                <!-- FALLBACK CARD FOR MOCK PROTOCOLS -->
+                <article id="protocol-fallback-card" class="bg-white text-gray-900 w-full max-w-3xl min-h-[900px] p-8 md:p-12 shadow-2xl rounded-xl border border-gray-300 flex flex-col justify-between transition-all duration-300 mx-auto hidden">
+                    <div>
+                        <div class="border-b-4 border-[#3584e4] pb-4 mb-6 flex justify-between items-start">
+                            <div>
+                                <h2 class="text-xs uppercase tracking-widest text-[#3584e4] font-bold" id="fallback-cat">Standard Clinical Protocol</h2>
+                                <h1 class="text-2xl font-extrabold tracking-tight text-gray-900 mt-1" id="fallback-title">Universal Patient Care</h1>
+                            </div>
+                            <div class="text-right border-l-2 border-gray-200 pl-4 hidden sm:block">
+                                <span class="text-xs font-bold text-gray-400 block uppercase tracking-wider">STATE EMS SYSTEM</span>
+                                <span class="text-[10px] bg-blue-50 text-[#3584e4] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wider mt-1 inline-block">ACUTE CARE</span>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-6 text-xs font-bold text-center">
+                            <div class="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                <span class="text-gray-400 block text-[9px] uppercase">EMR</span>
+                                <span class="text-emerald-700 flex items-center justify-center gap-1 mt-0.5"><i class="fa-solid fa-circle-check"></i> Basic Care</span>
+                            </div>
+                            <div class="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                <span class="text-gray-400 block text-[9px] uppercase">EMT</span>
+                                <span class="text-emerald-700 flex items-center justify-center gap-1 mt-0.5"><i class="fa-solid fa-circle-check"></i> Standard Care</span>
+                            </div>
+                            <div class="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                <span class="text-gray-400 block text-[9px] uppercase">AEMT</span>
+                                <span class="text-blue-700 flex items-center justify-center gap-1 mt-0.5"><i class="fa-solid fa-circle-plus"></i> Advanced Iv</span>
+                            </div>
+                            <div class="bg-gray-50 p-2 rounded-lg border border-gray-100">
+                                <span class="text-gray-400 block text-[9px] uppercase">PARAMEDIC</span>
+                                <span class="text-red-700 flex items-center justify-center gap-1 mt-0.5"><i class="fa-solid fa-shield-halved"></i> Full Scope</span>
+                            </div>
+                        </div>
+
+                        <div class="space-y-6 text-sm text-gray-800 leading-relaxed" id="fallback-content"></div>
+                    </div>
+                    <div class="border-t border-gray-200 pt-4 mt-8 flex flex-wrap items-center justify-between text-[11px] text-gray-500 font-medium">
+                        <span>AUTHORIZED FIELD MANUAL • REVIEW BIENNIALLY</span>
+                        <span>Page <span id="fallback-page-num">1</span> of 11</span>
+                    </div>
+                </article>
+
+            </div>
+        </section>
+    </main>
+
+    <!-- ADWAITA TOAST NOTIFICATION -->
+    <div id="voice-toast" class="absolute bottom-6 left-1/2 transform -translate-x-1/2 bg-[#303030] text-white font-semibold text-xs py-3 px-6 rounded-full shadow-2xl flex items-center gap-3 border border-[rgba(255,255,255,0.08)] transition-all duration-300 opacity-0 pointer-events-none z-50">
+        <i class="fa-solid fa-microphone-lines animate-pulse text-[#3584e4] text-sm"></i>
+        <span>LISTENING: SAY A PROTOCOL OR SYMPTOM</span>
+    </div>
+
+    <!-- MAIN APP LOGIC -->
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        // App State
+        let currentDocument = null;
+        let currentScale = 1.3;
+        let currentPageNum = 1;
+        let isPdfLoaded = false;
+        let pdfOutlineData = []; 
+        let customSearchDataset = []; 
+        let activeFuseInstance = null; 
+        let activeView = 'dashboard'; 
+        let pageRendering = false;
+        let pageNumPending = null;
+        let renderTask = null;
+        let listingsFilterQuery = ""; // Shared query state for both TOC filter bars
+
+        const ui = {
+            search: document.getElementById('search-input'),
+            voiceBtn: document.getElementById('voice-btn'),
+            resultsPanel: document.getElementById('search-results-panel'),
+            resultsList: document.getElementById('search-results-list'),
+            resultsCount: document.getElementById('results-count'),
+            resultsQuery: document.getElementById('results-query'),
+            closeResults: document.getElementById('close-results'),
+            
+            tocList: document.getElementById('toc-list'),
+            workspaceWrapper: document.getElementById('workspace-wrapper'),
+            
+            dashboardView: document.getElementById('dashboard-view'),
+            dashboardWelcome: document.getElementById('dashboard-welcome'),
+            dashboardGrid: document.getElementById('dashboard-grid'),
+            dashboardFilterBar: document.getElementById('dashboard-filter-bar'),
+            dashboardSearchInput: document.getElementById('dashboard-search-input'),
+            dashboardVoiceBtn: document.getElementById('dashboard-voice-btn'),
+            listingsSearchInput: document.getElementById('listings-search-input'),
+            listingsVoiceBtn: document.getElementById('listings-voice-btn'),
+            
+            pdfContainer: document.getElementById('pdf-container'),
+            canvas: document.getElementById('pdf-canvas'),
+            ctx: document.getElementById('pdf-canvas').getContext('2d'),
+            textLayer: document.getElementById('text-layer'),
+            annotationLayer: document.getElementById('annotation-layer'),
+            
+            loader: document.getElementById('loader'),
+            loaderMsg: document.getElementById('loader-msg'),
+            pageInput: document.getElementById('page-input'),
+            totalPagesText: document.getElementById('total-pages'),
+            prevBtn: document.getElementById('prev-page'),
+            nextBtn: document.getElementById('next-page'),
+            zoomInBtn: document.getElementById('zoom-in'),
+            zoomOutBtn: document.getElementById('zoom-out'),
+            zoomText: document.getElementById('zoom-text'),
+            
+            btnModeDashboard: document.getElementById('view-mode-dashboard'),
+            btnModeCanvas: document.getElementById('view-mode-canvas'),
+            uploader: document.getElementById('pdf-uploader'),
+            uploadLabel: document.getElementById('upload-label'),
+            resetBtn: document.getElementById('reset-doc'),
+            scrapeCurrentBtn: document.getElementById('scrape-current-btn'),
+            
+            progressContainer: document.getElementById('indexing-progress'),
+            progressBar: document.getElementById('progress-bar'),
+            progressPercent: document.getElementById('progress-percent'),
+            
+            fallbackCard: document.getElementById('protocol-fallback-card'),
+            fallbackTitle: document.getElementById('fallback-title'),
+            fallbackCat: document.getElementById('fallback-cat'),
+            fallbackContent: document.getElementById('fallback-content'),
+            fallbackPageNum: document.getElementById('fallback-page-num'),
+            
+            docPageCount: document.getElementById('doc-page-count'),
+            voiceToast: document.getElementById('voice-toast')
+        };
+
+        // --- MOCK PROTOCOL DATABANK ---
+        const MOCK_PROTOCOLS = [
+            { 
+                page: 1, 
+                title: "Universal Patient Care", 
+                category: "STANDARD OPERATING DIRECTIVE",
+                tags: ["assessment", "scene safety", "vitals", "oxygen", "abc", "primary survey", "consent"],
+                content: `<div class="space-y-4"><section><h4 class="font-bold text-gray-950 border-b border-gray-200 pb-1 text-sm uppercase tracking-wide">1. Scene Safety & Entry</h4><ul class="list-disc pl-5 space-y-1.5 mt-2"><li>Assess scene safety and apply body substance isolation (BSI). Avoid entry if hazard present.</li><li>Observe patient position, presentation, work of breathing, and overall environment.</li></ul></section></div>`
+            },
+            { 
+                page: 2, 
+                title: "Airway Management & Oxygenation", 
+                category: "CRITICAL INTERVENTION AREA",
+                tags: ["intubation", "cricothyrotomy", "cpap", "bvm", "supraglottic", "copd", "asthma", "airway"],
+                content: `<div class="space-y-4"><section><h4 class="font-bold text-red-600 border-b border-gray-200 pb-1 text-sm uppercase tracking-wide">Basic Airway Management</h4><ul class="list-disc pl-5 space-y-1.5 mt-2"><li><strong>Oropharyngeal Airway (OPA):</strong> Use on unconscious patients without an active gag reflex.</li></ul></section></div>`
+            }
+        ];
+
+        function setupMockSearchEngine() {
+            const fuseOptions = { keys: [{ name: 'title', weight: 0.6 }, { name: 'tags', weight: 0.3 }], threshold: 0.45, ignoreLocation: true };
+            activeFuseInstance = new Fuse(MOCK_PROTOCOLS, fuseOptions);
+        }
+        setupMockSearchEngine();
+
+        // --- VIEW MODE TOGGLING ---
+        function setViewMode(mode) {
+            activeView = mode;
+            if (mode === 'dashboard') {
+                ui.btnModeDashboard.className = "text-xs px-4 py-1.5 rounded-md font-semibold bg-[#303030] text-white transition-all duration-150 flex items-center gap-1.5 shadow-sm";
+                ui.btnModeCanvas.className = "text-xs px-4 py-1.5 rounded-md font-semibold text-[#9a9996] hover:text-gray-200 transition-all duration-150 flex items-center gap-1.5";
+                
+                ui.pdfContainer.classList.add('hidden');
+                ui.fallbackCard.classList.add('hidden');
+                ui.dashboardView.classList.remove('hidden');
+                ui.scrapeCurrentBtn.classList.add('hidden');
+            } else {
+                ui.btnModeCanvas.className = "text-xs px-4 py-1.5 rounded-md font-semibold bg-[#303030] text-white transition-all duration-150 flex items-center gap-1.5 shadow-sm";
+                ui.btnModeDashboard.className = "text-xs px-4 py-1.5 rounded-md font-semibold text-[#9a9996] hover:text-gray-200 transition-all duration-150 flex items-center gap-1.5";
+                
+                ui.dashboardView.classList.add('hidden');
+                
+                if (isPdfLoaded) {
+                    ui.pdfContainer.classList.remove('hidden');
+                    ui.fallbackCard.classList.add('hidden');
+                    ui.scrapeCurrentBtn.classList.remove('hidden');
+                    queueRenderPage(currentPageNum);
+                } else {
+                    ui.pdfContainer.classList.add('hidden');
+                    ui.fallbackCard.classList.remove('hidden');
+                    renderMockPage(currentPageNum);
+                }
+            }
+        }
+
+        ui.btnModeDashboard.addEventListener('click', () => setViewMode('dashboard'));
+        ui.btnModeCanvas.addEventListener('click', () => {
+            setViewMode('canvas');
+        });
+
+        // --- PDF DESTINATION RESOLVER ---
+        async function resolveDestinationAndNavigate(dest) {
+            if (dest === null || dest === undefined) return;
+            
+            // Support direct raw page number routes for mock/fallback execution safely
+            if (Number.isInteger(dest)) {
+                navigateToPage(dest + 1);
+                setViewMode('canvas');
+                return;
+            }
+
+            if (!currentDocument) return;
+            try {
+                let explicitDest = dest;
+                
+                if (typeof dest === 'string') {
+                    explicitDest = await currentDocument.getDestination(dest);
+                }
+                
+                if (Array.isArray(explicitDest) && explicitDest.length > 0) {
+                    const pageRef = explicitDest[0];
+                    let pageIndex;
+                    
+                    if (typeof pageRef === 'object' && pageRef !== null) {
+                        pageIndex = await currentDocument.getPageIndex(pageRef);
+                    } else if (Number.isInteger(pageRef)) {
+                        pageIndex = pageRef;
+                    }
+                    
+                    if (pageIndex !== undefined) {
+                        navigateToPage(pageIndex + 1);
+                        setViewMode('canvas');
+                    }
+                }
+            } catch (err) {
+                console.error("Could not resolve PDF destination:", err);
+            }
+        }
+        window.resolveDestinationAndNavigate = resolveDestinationAndNavigate; 
+
+        function navigateToPage(pageNum) {
+            pageNum = Math.max(1, Math.min(pageNum, isPdfLoaded ? currentDocument.numPages : MOCK_PROTOCOLS.length));
+            currentPageNum = pageNum;
+            if (ui.pageInput) ui.pageInput.value = pageNum;
+
+            if (activeView === 'canvas') {
+                if (isPdfLoaded) {
+                    queueRenderPage(pageNum);
+                } else {
+                    renderMockPage(pageNum);
+                }
+            }
+        }
+
+        function renderMockPage(pageNum) {
+            const pageData = MOCK_PROTOCOLS.find(p => p.page === pageNum) || MOCK_PROTOCOLS[0];
+            ui.fallbackTitle.textContent = pageData.title;
+            ui.fallbackCat.textContent = pageData.category;
+            ui.fallbackContent.innerHTML = pageData.content;
+            ui.fallbackPageNum.textContent = pageData.page;
+        }
+
+        function queueRenderPage(num) {
+            if (pageRendering) {
+                pageNumPending = num;
+            } else {
+                renderPdfPage(num);
+            }
+        }
+
+        // --- RENDER PDF GRAPHICS + INTERACTIVE LAYERS ---
+        async function renderPdfPage(pageNum) {
+            pageRendering = true;
+            ui.loader.classList.remove('hidden');
+            if (ui.loaderMsg) ui.loaderMsg.textContent = `Rendering Page ${pageNum}...`;
+            ui.textLayer.innerHTML = '';
+            ui.annotationLayer.innerHTML = '';
+
+            try {
+                const page = await currentDocument.getPage(pageNum);
+                const viewport = page.getViewport({ scale: currentScale });
+                
+                ui.canvas.height = viewport.height;
+                ui.canvas.width = viewport.width;
+                ui.pdfContainer.style.width = viewport.width + 'px';
+                ui.pdfContainer.style.height = viewport.height + 'px';
+
+                renderTask = page.render({ canvasContext: ui.ctx, viewport: viewport });
+                await renderTask.promise;
+
+                // 1. TEXT LAYER
+                const textContent = await page.getTextContent();
+                textContent.items.forEach(item => {
+                    const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+                    const fontSize = Math.sqrt((tx[2] * tx[2]) + (tx[3] * tx[3]));
+                    
+                    const span = document.createElement('span');
+                    span.textContent = item.str + ' '; 
+                    span.style.left = tx[4] + 'px';
+                    span.style.top = (tx[5] - fontSize) + 'px'; 
+                    span.style.fontSize = fontSize + 'px';
+                    ui.textLayer.appendChild(span);
+                });
+
+                // 2. ANNOTATION LAYER
+                const annotations = await page.getAnnotations();
+                annotations.forEach(anno => {
+                    if (anno.subtype === 'Link') {
+                        const rect = viewport.convertToViewportRectangle(anno.rect);
+                        const minX = Math.min(rect[0], rect[2]);
+                        const minY = Math.min(rect[1], rect[3]);
+                        const width = Math.abs(rect[2] - rect[0]);
+                        const height = Math.abs(rect[3] - rect[1]);
+
+                        const linkNode = document.createElement('a');
+                        linkNode.style.position = 'absolute';
+                        linkNode.style.left = minX + 'px';
+                        linkNode.style.top = minY + 'px';
+                        linkNode.style.width = width + 'px';
+                        linkNode.style.height = height + 'px';
+                        linkNode.style.pointerEvents = 'auto';
+                        linkNode.className = "cursor-pointer bg-[#3584e4]/10 hover:bg-[#3584e4]/25 transition-colors border border-transparent hover:border-[#3584e4]/30 rounded";
+
+                        if (anno.url) {
+                            linkNode.href = anno.url;
+                            linkNode.target = '_blank';
+                            linkNode.title = `External URL: ${anno.url}`;
+                        } else if (anno.dest) {
+                            linkNode.title = "Internal Document Link";
+                            linkNode.onclick = (e) => {
+                                e.preventDefault();
+                                resolveDestinationAndNavigate(anno.dest);
+                            };
+                        }
+                        ui.annotationLayer.appendChild(linkNode);
+                    }
+                });
+            } catch (err) {
+                if (err.name !== 'RenderingCancelledException') {
+                    console.error("Render failed:", err);
+                }
+            } finally {
+                pageRendering = false;
+                if (pageNumPending !== null) {
+                    renderPdfPage(pageNumPending);
+                    pageNumPending = null;
+                } else {
+                    ui.loader.classList.add('hidden');
+                }
+            }
+        }
+
+        // --- PDF INGESTION & DEEP PAGE SCRAPING PIPELINE ---
+        ui.uploader.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            ui.loader.classList.remove('hidden');
+            ui.loaderMsg.textContent = "Loading Document stream...";
+            ui.uploadLabel.textContent = file.name.substring(0, 20) + '...';
+            
+            ui.pageInput.disabled = false;
+            ui.prevBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            ui.nextBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            ui.pageInput.classList.remove('opacity-50');
+
+            const fileReader = new FileReader();
+            fileReader.onload = async function() {
+                const typedarray = new Uint8Array(this.result);
+                try {
+                    currentDocument = await pdfjsLib.getDocument({ data: typedarray }).promise;
+                    isPdfLoaded = true;
+                    ui.resetBtn.classList.remove('hidden');
+                    ui.scrapeCurrentBtn.classList.remove('hidden');
+                    
+                    ui.totalPagesText.textContent = currentDocument.numPages;
+                    ui.pageInput.max = currentDocument.numPages;
+                    ui.pageInput.value = 1;
+                    currentPageNum = 1;
+
+                    // Execute progressive custom scanner
+                    await scanForPrintedTableOfContents(currentDocument);
+                    
+                    // Background search indexing
+                    await parseTextForSearchEngine(currentDocument);
+                    
+                } catch (err) {
+                    console.error("PDF load execution failed:", err);
+                    alert("Unable to parse the PDF document.");
+                } finally {
+                    // Force hide the loader when custom PDF preparation finishes
+                    ui.loader.classList.add('hidden');
+                }
+            };
+            fileReader.readAsArrayBuffer(file);
+        });
+
+        // --- MATHEMATICAL ROW BASES CHANNELER ---
+        function groupTextItemsIntoRows(textItems) {
+            const rows = [];
+            const sortedItems = [...textItems].sort((a, b) => b.transform[5] - a.transform[5]);
+            
+            sortedItems.forEach(item => {
+                const y = item.transform[5];
+                // Environment-agnostic Y-coordinate baselining (5px threshold absorbs different system font fallbacks)
+                let row = rows.find(r => Math.abs(r.y - y) < 5);
+                if (row) {
+                    row.items.push(item);
+                } else {
+                    rows.push({
+                        y: y,
+                        items: [item]
+                    });
+                }
+            });
+            
+            rows.forEach(row => {
+                row.items.sort((a, b) => a.transform[4] - b.transform[4]);
+            });
+            
+            return rows;
+        }
+
+        // Binds coordinates of any PDF rectangle to the exact vertically matching text baseline
+        function findClosestRowForRect(rect, groupedRows) {
+            const linkMinY = Math.min(rect[1], rect[3]);
+            const linkMaxY = Math.max(rect[1], rect[3]);
+            const linkCenterY = (rect[1] + rect[3]) / 2;
+            
+            const candidateRows = groupedRows.filter(row => 
+                row.y >= linkMinY - 5 && row.y <= linkMaxY + 5
+            );
+            
+            if (candidateRows.length === 0) {
+                let closestRow = null;
+                let minDistance = Infinity;
+                groupedRows.forEach(row => {
+                    const dist = Math.abs(row.y - linkCenterY);
+                    if (dist < minDistance) {
+                        minDistance = dist;
+                        closestRow = row;
+                    }
+                });
+                return closestRow;
+            }
+            
+            let bestRow = candidateRows[0];
+            let minDistance = Math.abs(bestRow.y - linkCenterY);
+            candidateRows.forEach(row => {
+                const dist = Math.abs(row.y - linkCenterY);
+                if (dist < minDistance) {
+                    minDistance = dist;
+                    bestRow = row;
+                }
+            });
+            
+            return bestRow;
+        }
+
+        async function scanForPrintedTableOfContents(pdfDoc) {
+            ui.loaderMsg.textContent = "Extracting Table of Contents from pages 3-7...";
+            pdfOutlineData = [];
+            
+            // Explicitly target pages 3 through 7
+            const startPage = Math.min(3, pdfDoc.numPages);
+            const endPage = Math.min(7, pdfDoc.numPages);
+
+            for (let i = startPage; i <= endPage; i++) {
+                try {
+                    const page = await pdfDoc.getPage(i);
+                    const textContent = await page.getTextContent();
+                    await scrapeLinksFromPage(page, textContent.items);
+                } catch (err) {
+                    console.warn(`Error scanning page index ${i} for TOC metadata:`, err);
+                }
+            }
+
+            if (pdfOutlineData.length === 0) {
+                try {
+                    const page1 = await pdfDoc.getPage(1);
+                    const textContent1 = await page1.getTextContent();
+                    await scrapeLinksFromPage(page1, textContent1.items);
+                } catch(e) {}
+            }
+
+            renderDashboardAndSidebar();
+        }
+
+        async function scrapeLinksFromPage(page, textItems) {
+            const annotations = await page.getAnnotations();
+            const linkAnnos = annotations.filter(a => a.subtype === 'Link');
+
+            // Partition page elements into clean rows to isolate adjacent link baselines
+            const groupedRows = groupTextItemsIntoRows(textItems);
+
+            linkAnnos.forEach(anno => {
+                const rect = anno.rect;
+                const linkMinX = Math.min(rect[0], rect[2]);
+                const linkMaxX = Math.max(rect[0], rect[2]);
+                
+                // Map the active link precisely to its corresponding text row
+                const matchedRow = findClosestRowForRect(rect, groupedRows);
+                if (!matchedRow) return;
+
+                // Establish a hard horizontal limit on the left to prevent cross-column contamination
+                let leftLinkLimitX = 0;
+                linkAnnos.forEach(other => {
+                    if (other === anno) return;
+                    const otherRect = other.rect;
+                    const otherMinX = Math.min(otherRect[0], otherRect[2]);
+                    const otherMaxX = Math.max(otherRect[0], otherRect[2]);
+                    
+                    const otherRow = findClosestRowForRect(otherRect, groupedRows);
+                    // If there is another link directly on this same horizontal row and sitting to its left
+                    if (otherRow === matchedRow && otherMaxX < linkMinX) {
+                        if (otherMaxX > leftLinkLimitX) {
+                            leftLinkLimitX = otherMaxX;
+                        }
+                    }
+                });
+
+                // Filter row elements strictly sitting between the left horizontal limit and this link box
+                const rowTextItems = matchedRow.items.filter(item => {
+                    const x = item.transform[4];
+                    return x >= leftLinkLimitX && x <= linkMaxX + 5;
+                });
+
+                // Find the index of the first item overlapping the active link
+                let linkItemIndex = -1;
+                for (let i = rowTextItems.length - 1; i >= 0; i--) {
+                    const item = rowTextItems[i];
+                    const x = item.transform[4];
+                    const w = item.width || (item.str.length * 5);
+                    if (x + w >= linkMinX - 1 && x <= linkMaxX + 1) {
+                        linkItemIndex = i;
+                        break;
+                    }
+                }
+
+                // If no direct overlap, align to closest leftwards sibling
+                if (linkItemIndex === -1) {
+                    for (let i = rowTextItems.length - 1; i >= 0; i--) {
+                        if (rowTextItems[i].transform[4] < linkMinX) {
+                            linkItemIndex = i;
+                            break;
+                        }
+                    }
+                }
+
+                // Gap-Aware Backward Walker: Gathers items to the left until we cross a gap > 70px (column break)
+                let accumulatedItems = [];
+                if (linkItemIndex !== -1) {
+                    accumulatedItems.push(rowTextItems[linkItemIndex]);
+                    let lastX = rowTextItems[linkItemIndex].transform[4];
+
+                    for (let i = linkItemIndex - 1; i >= 0; i--) {
+                        const currentItem = rowTextItems[i];
+                        const currentX = currentItem.transform[4];
+                        const currentW = currentItem.width || (currentItem.str.length * 5);
+                        const gap = lastX - (currentX + currentW);
+
+                        // Stop if we hit a sibling link boundary or a column break gap (>70px)
+                        if (currentX + currentW < leftLinkLimitX || gap > 70) {
+                            break;
+                        }
+
+                        accumulatedItems.push(currentItem);
+                        lastX = currentX;
+                    }
+                }
+
+                accumulatedItems.reverse();
+                let label = accumulatedItems.map(item => item.str).join(' ').trim();
+
+                if (!label || label.trim().length < 2) {
+                    if (anno.dest) {
+                        label = `Section Reference (${typeof anno.dest === 'string' ? anno.dest : 'Internal Link'})`;
+                    } else if (anno.url) {
+                        label = `External Link: ${anno.url.substring(0, 30)}...`;
+                    } else {
+                        label = `Page Reference Location`;
+                    }
+                }
+
+                if (label.includes('<<') || label.includes('<<<')) {
+                    return;
+                }
+
+                // Clean spaces and formatting dots
+                label = label.replace(/\s+/g, ' ').replace(/\.+/g, '.').trim();
+
+                pdfOutlineData.push({
+                    title: label,
+                    dest: anno.dest || null,
+                    url: anno.url || null,
+                    sourcePage: page.pageNumber
+                });
+            });
+        }
+
+        ui.scrapeCurrentBtn.addEventListener('click', async () => {
+            if (!isPdfLoaded) return;
+            ui.loader.classList.remove('hidden');
+            ui.loaderMsg.textContent = "Scraping link structures on current page...";
+            try {
+                const page = await currentDocument.getPage(currentPageNum);
+                const textContent = await page.getTextContent();
+                
+                pdfOutlineData = [];
+                await scrapeLinksFromPage(page, textContent.items);
+                
+                renderDashboardAndSidebar();
+                setViewMode('dashboard');
+            } catch (err) {
+                console.error("Manual override scrape routine failed:", err);
+            } finally {
+                ui.loader.classList.add('hidden');
+            }
+        });
+
+        // --- DASHBOARD AND SIDEBAR RENDERERS ---
+        function renderDashboardAndSidebar() {
+            ui.dashboardWelcome.classList.add('hidden');
+            ui.dashboardGrid.classList.remove('hidden');
+            ui.dashboardFilterBar.classList.remove('hidden');
+            ui.dashboardGrid.innerHTML = '';
+            ui.tocList.innerHTML = '';
+
+            const filteredOutline = pdfOutlineData.filter(item => 
+                item.title && 
+                !item.title.includes('<<') && 
+                !item.title.includes('<<<') &&
+                (listingsFilterQuery === "" || item.title.toLowerCase().includes(listingsFilterQuery.toLowerCase()))
+            );
+
+            if (filteredOutline.length === 0) {
+                if (listingsFilterQuery !== "") {
+                    // Show "No matches" specifically for filtered searches (AdwCard alert style)
+                    ui.dashboardGrid.innerHTML = `
+                        <div class="col-span-full text-center py-10 bg-[#303030] border border-[rgba(255,255,255,0.08)] rounded-xl p-6">
+                            <i class="fa-solid fa-magnifying-glass text-[#9a9996] text-3xl mb-3"></i>
+                            <h3 class="text-white font-bold text-sm">No Matches Found</h3>
+                            <p class="text-[#9a9996] text-xs mt-1">No index listings match the term "${listingsFilterQuery}". Try refining your search query.</p>
+                        </div>
+                    `;
+                } else {
+                    ui.dashboardGrid.innerHTML = `
+                        <div class="col-span-full text-center py-10 bg-[#303030] border border-[rgba(255,255,255,0.08)] rounded-xl p-6">
+                            <i class="fa-solid fa-triangle-exclamation text-amber-500 text-3xl mb-3"></i>
+                            <h3 class="text-white font-bold text-sm">No Interactive Links Scraped Yet</h3>
+                            <p class="text-[#9a9996] text-xs mt-1">We couldn't automatically detect Table of Contents links. You can navigate manually in the PDF Viewer and click "Use Page as Dashboard" to pull interactive buttons directly off any page!</p>
+                            <button onclick="setViewMode('canvas')" class="mt-4 bg-[#3584e4] hover:bg-[#5195e8] text-white px-6 py-2 rounded-lg font-bold text-xs adw-transition">Open PDF Viewer</button>
+                        </div>
+                    `;
+                }
+                ui.tocList.innerHTML = `<li class="p-4 text-xs text-[#9a9996] italic text-center">No links match filter criteria.</li>`;
+                ui.docPageCount.textContent = `0 Targets`;
+                return;
+            }
+
+            filteredOutline.forEach((item, index) => {
+                // 1. Grid Dashboard Card (GTK4/AdwCard Design Style with enhanced standard gap-6 layout spacing)
+                const btn = document.createElement('div');
+                btn.className = "bg-[#303030] border border-[rgba(255,255,255,0.08)] hover:border-[#3584e4]/40 hover:bg-[#383838] p-4.5 rounded-xl cursor-pointer shadow-sm transition-all duration-150 group flex items-center gap-3";
+                
+                let icon = "fa-file-lines";
+                let iconColor = "text-[#9a9996]";
+                let lowerTitle = item.title.toLowerCase();
+                
+                if (lowerTitle.includes('cardiac') || lowerTitle.includes('heart')) {
+                    icon = "fa-heart-pulse";
+                    iconColor = "text-red-500 bg-red-500/10 border-red-500/20";
+                } else if (lowerTitle.includes('trauma')) {
+                    icon = "fa-crutch";
+                    iconColor = "text-orange-500 bg-orange-500/10 border-orange-500/20";
+                } else if (lowerTitle.includes('airway') || lowerTitle.includes('breath')) {
+                    icon = "fa-lungs";
+                    iconColor = "text-blue-400 bg-blue-500/10 border-blue-500/20";
+                } else if (lowerTitle.includes('med') || lowerTitle.includes('drug') || lowerTitle.includes('pharm')) {
+                    icon = "fa-pills";
+                    iconColor = "text-purple-400 bg-purple-500/10 border-purple-500/20";
+                } else if (lowerTitle.includes('pediatric') || lowerTitle.includes('child')) {
+                    icon = "fa-child-reaching";
+                    iconColor = "text-green-400 bg-green-500/10 border-green-500/20";
+                } else if (item.url) {
+                    icon = "fa-arrow-up-right-from-square";
+                    iconColor = "text-teal-400 bg-teal-500/10 border-teal-500/20";
+                } else {
+                    iconColor = "text-[#3584e4] bg-[#3584e4]/10 border-[#3584e4]/20";
+                }
+
+                btn.innerHTML = `
+                    <div class="p-2.5 rounded-lg border flex items-center justify-center shrink-0 ${iconColor} group-hover:scale-105 transition-transform">
+                        <i class="fa-solid ${icon} text-md w-5 text-center"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h3 class="text-xs font-bold text-white group-hover:text-white leading-normal truncate">${item.title}</h3>
+                        <p class="text-[10px] text-[#3584e4] mt-1 font-semibold uppercase tracking-wider flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
+                            ${item.url ? 'Open Resource' : 'Jump to Section'} <i class="fa-solid fa-arrow-right text-[8px]"></i>
+                        </p>
+                    </div>
+                `;
+                
+                btn.onclick = () => {
+                    if (item.url) {
+                        window.open(item.url, '_blank');
+                    } else {
+                        resolveDestinationAndNavigate(item.dest);
+                    }
+                };
+                ui.dashboardGrid.appendChild(btn);
+
+                // 2. Sidebar Navigation Entry (Standard GNOME Sidebar List styling with increased item title gap spacing)
+                const li = document.createElement('li');
+                li.className = "toc-item group flex justify-between items-center py-2 px-3 mx-1 rounded-lg cursor-pointer hover:bg-[rgba(255,255,255,0.06)] transition-all duration-100";
+                
+                li.innerHTML = `
+                    <div class="flex items-center gap-3.5 overflow-hidden pr-2">
+                        <i class="fa-solid ${item.url ? 'fa-arrow-up-right-from-square text-teal-400' : 'fa-link text-[#3584e4]'} text-[10px]"></i>
+                        <span class="text-xs font-bold text-gray-200 group-hover:text-white truncate">${item.title}</span>
+                    </div>
+                    <span class="text-[9px] text-[#9a9996] bg-[#303030] group-hover:bg-[#242424] group-hover:text-[#3584e4] px-2 py-0.5 rounded-full border border-[rgba(255,255,255,0.04)] shrink-0 transition-colors">Target</span>
+                `;
+                li.onclick = () => {
+                    if (item.url) {
+                        window.open(item.url, '_blank');
+                    } else {
+                        resolveDestinationAndNavigate(item.dest);
+                    }
+                };
+                ui.tocList.appendChild(li);
+            });
+
+            ui.docPageCount.textContent = `${filteredOutline.length} Targets`;
+        }
+
+        // --- BACKGROUND TEXT INDEXING FOR SEARCH ---
+        async function parseTextForSearchEngine(pdfDoc) {
+            ui.progressContainer.classList.remove('hidden');
+            ui.progressBar.style.width = '0%';
+            ui.progressPercent.textContent = '0%';
+            customSearchDataset = [];
+            const maxPages = pdfDoc.numPages;
+            
+            for (let i = 1; i <= maxPages; i++) {
+                try {
+                    const page = await pdfDoc.getPage(i);
+                    const textContent = await page.getTextContent();
+                    const pageText = textContent.items.map(item => item.str).join(' ');
+                    
+                    const firstLines = textContent.items.map(item => item.str.trim()).filter(str => str.length > 2);
+                    const guessedTitle = firstLines.length > 0 ? firstLines[0] : `Page ${i} Data`;
+
+                    customSearchDataset.push({
+                        page: i,
+                        title: guessedTitle.substring(0, 50),
+                        text: pageText
+                    });
+
+                    const percent = Math.round((i / maxPages) * 100);
+                    ui.progressBar.style.width = `${percent}%`;
+                    ui.progressPercent.textContent = `${percent}%`;
+                } catch (e) {
+                    console.warn(`Extraction error on page ${i}:`, e);
+                }
+            }
+
+            activeFuseInstance = new Fuse(customSearchDataset, {
+                keys: [ { name: 'title', weight: 0.7 }, { name: 'text', weight: 0.3 } ],
+                threshold: 0.4,
+                ignoreLocation: true
+            });
+            ui.progressContainer.classList.add('hidden');
+        }
+
+        // --- SEARCH EXECUTION (FULL TEXT) ---
+        function runSearch(query) {
+            if (!query || query.trim().length < 2 || !activeFuseInstance) {
+                ui.resultsPanel.classList.add('-translate-x-full', 'hidden');
+                return;
+            }
+
+            const rawResults = activeFuseInstance.search(query);
+            if (ui.resultsCount) ui.resultsCount.textContent = `${rawResults.length} matches`;
+            ui.resultsList.innerHTML = '';
+
+            if (rawResults.length > 0) {
+                rawResults.forEach(item => {
+                    const itemData = item.item;
+                    const div = document.createElement('div');
+                    div.className = "bg-[#242424] border border-[rgba(255,255,255,0.06)] hover:border-[#3584e4]/40 p-3 rounded-lg cursor-pointer transition-all duration-150 group";
+                    
+                    let previewText = "";
+                    const textIdx = itemData.text.toLowerCase().indexOf(query.toLowerCase());
+                    if (textIdx !== -1) {
+                        const start = Math.max(0, textIdx - 30);
+                        const end = Math.min(itemData.text.length, textIdx + 60);
+                        previewText = "..." + itemData.text.substring(start, end).replace(/\n/g, ' ') + "...";
+                    } else {
+                        previewText = itemData.text.substring(0, 80) + "...";
+                    }
+
+                    div.innerHTML = `
+                        <div class="flex justify-between items-start mb-1">
+                            <span class="text-[9px] bg-[#3584e4]/15 text-[#3584e4] font-bold px-2 py-0.5 rounded-full border border-blue-500/20">PAGE ${itemData.page}</span>
+                        </div>
+                        <h4 class="text-xs font-bold text-gray-100 group-hover:text-white transition-colors">${itemData.title}</h4>
+                        <p class="text-[11px] text-[#9a9996] mt-1 line-clamp-2">${previewText}</p>
+                    `;
+
+                    div.onclick = () => {
+                        navigateToPage(itemData.page);
+                        setViewMode('canvas');
+                        ui.resultsPanel.classList.add('-translate-x-full', 'hidden');
+                    };
+                    ui.resultsList.appendChild(div);
+                });
+            } else {
+                ui.resultsList.innerHTML = `<div class="text-center py-6 text-[#9a9996] text-xs">No matches found in text.</div>`;
+            }
+
+            ui.resultsPanel.classList.remove('hidden', '-translate-x-full');
+        }
+
+        ui.search.addEventListener('input', (e) => runSearch(e.target.value));
+        ui.closeResults.addEventListener('click', () => {
+            ui.resultsPanel.classList.add('-translate-x-full', 'hidden');
+        });
+
+        // --- FILTERING LISTINGS INPUT HANDLING ---
+        function applyListingsFilter(value) {
+            listingsFilterQuery = value;
+            
+            // Sync values across both search inputs
+            ui.listingsSearchInput.value = value;
+            ui.dashboardSearchInput.value = value;
+            
+            renderDashboardAndSidebar();
+        }
+
+        ui.listingsSearchInput.addEventListener('input', (e) => applyListingsFilter(e.target.value));
+        ui.dashboardSearchInput.addEventListener('input', (e) => applyListingsFilter(e.target.value));
+
+        // --- WEB SPEECH VOICE CONTROLLER ---
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            
+            // Generate distinct Speech Recognition instances for Document Text vs. Links Filter
+            const docSearchRec = new SpeechRecognition();
+            docSearchRec.continuous = false;
+            docSearchRec.interimResults = false;
+            
+            const listingsRec = new SpeechRecognition();
+            listingsRec.continuous = false;
+            listingsRec.interimResults = false;
+
+            let activeSessionType = null; // 'doc' or 'list'
+
+            // Document Search Speech Events
+            docSearchRec.onstart = () => {
+                activeSessionType = 'doc';
+                ui.voiceBtn.classList.add('voice-active');
+                ui.voiceToast.style.opacity = '1';
+            };
+            docSearchRec.onresult = (event) => {
+                const voiceQuery = event.results[0][0].transcript;
+                ui.search.value = voiceQuery;
+                runSearch(voiceQuery);
+            };
+            docSearchRec.onerror = () => cleanupVoice('doc');
+            docSearchRec.onend = () => cleanupVoice('doc');
+
+            // Listings Search Speech Events
+            listingsRec.onstart = () => {
+                activeSessionType = 'list';
+                ui.listingsVoiceBtn.classList.add('voice-active');
+                ui.dashboardVoiceBtn.classList.add('voice-active');
+                ui.voiceToast.style.opacity = '1';
+            };
+            listingsRec.onresult = (event) => {
+                const voiceQuery = event.results[0][0].transcript;
+                applyListingsFilter(voiceQuery);
+            };
+            listingsRec.onerror = () => cleanupVoice('list');
+            listingsRec.onend = () => cleanupVoice('list');
+
+            function cleanupVoice(type) {
+                activeSessionType = null;
+                ui.voiceToast.style.opacity = '0';
+                if (type === 'doc') {
+                    ui.voiceBtn.classList.remove('voice-active');
+                } else {
+                    ui.listingsVoiceBtn.classList.remove('voice-active');
+                    ui.dashboardVoiceBtn.classList.remove('voice-active');
+                }
+            }
+
+            // Click Handlers
+            ui.voiceBtn.addEventListener('click', () => {
+                if (!activeFuseInstance) return alert("Please load a PDF first.");
+                if (activeSessionType === 'doc') {
+                    docSearchRec.stop();
+                } else {
+                    if (activeSessionType) listingsRec.stop();
+                    docSearchRec.start();
+                }
+            });
+
+            const triggerListingsVoice = () => {
+                if (pdfOutlineData.length === 0) return alert("Please populate directory items first.");
+                if (activeSessionType === 'list') {
+                    listingsRec.stop();
+                } else {
+                    if (activeSessionType) docSearchRec.stop();
+                    listingsRec.start();
+                }
+            };
+
+            ui.listingsVoiceBtn.addEventListener('click', triggerListingsVoice);
+            ui.dashboardVoiceBtn.addEventListener('click', triggerListingsVoice);
+        } else {
+            ui.voiceBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            ui.listingsVoiceBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            ui.dashboardVoiceBtn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+
+        // --- INTERACTIONS ---
+        ui.prevBtn.addEventListener('click', () => { if (currentPageNum > 1) navigateToPage(currentPageNum - 1); });
+        ui.nextBtn.addEventListener('click', () => { 
+            const limit = isPdfLoaded ? currentDocument.numPages : MOCK_PROTOCOLS.length;
+            if (currentPageNum < limit) navigateToPage(currentPageNum + 1); 
+        });
+        ui.pageInput.addEventListener('change', (e) => { if (parseInt(e.target.value)) navigateToPage(parseInt(e.target.value)); });
+
+        ui.zoomInBtn.addEventListener('click', () => {
+            if (!isPdfLoaded || activeView !== 'canvas') return;
+            currentScale += 0.25;
+            if (ui.zoomText) ui.zoomText.textContent = `${Math.round(currentScale * 100)}%`;
+            queueRenderPage(currentPageNum);
+        });
+
+        ui.zoomOutBtn.addEventListener('click', () => {
+            if (!isPdfLoaded || activeView !== 'canvas' || currentScale <= 0.5) return;
+            currentScale -= 0.25;
+            if (ui.zoomText) ui.zoomText.textContent = `${Math.round(currentScale * 100)}%`;
+            queueRenderPage(currentPageNum);
+        });
+
+        ui.resetBtn.addEventListener('click', () => {
+            window.location.reload(); 
+        });
+
+        // --- DIRECT PDF STREAM AUTO-LOADER FROM TEXT FILE ---
+        async function loadPdfFromTextFile(url) {
+            ui.loader.classList.remove('hidden');
+            ui.loaderMsg.textContent = "Auto-loading base64 stream from source.txt...";
+            
+            try {
+                const response = await fetch(url);
+                const text = await response.text();
+                const dataUri = text.trim();
+
+                let base64 = dataUri;
+                if (dataUri.startsWith('data:')) {
+                    const commaIndex = dataUri.indexOf(',');
+                    if (commaIndex !== -1) {
+                        base64 = dataUri.substring(commaIndex + 1);
+                    }
+                }
+
+                const binaryString = window.atob(base64);
+                const len = binaryString.length;
+                const bytes = new Uint8Array(len);
+                for (let i = 0; i < len; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+
+                currentDocument = await pdfjsLib.getDocument({ data: bytes }).promise;
+                isPdfLoaded = true;
+                ui.resetBtn.classList.remove('hidden');
+                ui.scrapeCurrentBtn.classList.remove('hidden');
+                
+                ui.pageInput.disabled = false;
+                ui.prevBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                ui.nextBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                ui.pageInput.classList.remove('opacity-50');
+
+                ui.totalPagesText.textContent = currentDocument.numPages;
+                ui.pageInput.max = currentDocument.numPages;
+                ui.pageInput.value = 1;
+                currentPageNum = 1;
+
+                await scanForPrintedTableOfContents(currentDocument);
+                await parseTextForSearchEngine(currentDocument);
+                
+            } catch (err) {
+                console.warn("Could not load source.txt automatically. Running in local mock protocol mode.", err);
+                
+                pdfOutlineData = [
+                    { title: "1.0 Universal Patient Care", dest: 0, url: null, sourcePage: 1 },
+                    { title: "2.0 Airway Management & Oxygenation", dest: 1, url: null, sourcePage: 2 }
+                ];
+                ui.totalPagesText.textContent = MOCK_PROTOCOLS.length;
+                ui.pageInput.max = MOCK_PROTOCOLS.length;
+                ui.pageInput.value = 1;
+
+                ui.pageInput.disabled = false;
+                ui.prevBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                ui.nextBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                ui.pageInput.classList.remove('opacity-50');
+
+                renderDashboardAndSidebar();
+                setViewMode('dashboard');
+            } finally {
+                ui.loader.classList.add('hidden');
+            }
+        }
+
+        window.onload = function () {
+            loadPdfFromTextFile('source.txt');
+        }
+    </script>
+</body>
+</html>
